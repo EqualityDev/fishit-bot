@@ -576,3 +576,4 @@ if __name__ == "__main__":
     print("Starting CELLYN STORE BOT...")
     print("Fitur: Multi-item, Additem, Removeitem, Items, Custom Invoice")
     bot.run(TOKEN)
+# Final version with additem removeitem
