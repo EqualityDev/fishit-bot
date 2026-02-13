@@ -22,89 +22,16 @@ BCA_NUMBER = "8565330655"
 RATE = 95
 active_tickets = {}
 
-# ========== FIX: PAKSA PAKE CHANNEL ID INI! ==========
-# GANTI ID DI BAWAH INI DENGAN ID CHANNEL LOG LU!
-LOG_CHANNEL_ID = 1471765209143181414  # ← ID CHANNEL LU!
+# ========== LOG CHANNEL - DIMATIKAN TOTAL! ==========
+LOG_CHANNEL_ID = 1471765209143181414  # ID channel lu
 
-# ========== ON READY ==========
-@bot.event
-async def on_ready():
-    print(f"🔥 BOT READY! Login sebagai {bot.user}")
-    print(f"✅ Bot aktif di {len(bot.guilds)} server")
-    print(f"👮 Role Staff: {STAFF_ROLE_NAME}")
-    print(f"💳 DANA: {DANA_NUMBER}")
-    print(f"🏦 BCA: {BCA_NUMBER}")
-    print(f"📋 Log Channel ID: {LOG_CHANNEL_ID} (DIKUNCI!)")
-    
-    # Sync slash commands
-    try:
-        synced = await bot.tree.sync()
-        print(f"✅ Slash commands: {len(synced)} commands")
-        for cmd in synced:
-            print(f"   - /{cmd.name}")
-    except Exception as e:
-        print(f"❌ Error sync: {e}")
-
-# ========== FUNGSI GET LOG CHANNEL - PAKSA PAKE ID! ==========
-async def get_public_log_channel(guild):
-    # PAKSA ambil channel berdasarkan ID
-    channel = bot.get_channel(LOG_CHANNEL_ID)
-    
-    # Validasi channel masih ada dan di server yang bener
-    if channel and channel.guild.id == guild.id:
-        return channel
-    
-    # KALO CHANNEL GA ADA, TETAP JANGAN BIKIN BARU!
-    print(f"❌ ERROR: Channel log dengan ID {LOG_CHANNEL_ID} tidak ditemukan di server {guild.name}!")
-    print(f"📌 Pastikan channel sudah ada dan ID nya bener!")
-    print(f"📌 Atau ganti LOG_CHANNEL_ID di kode dengan ID yang valid!")
-    
-    # KALAU MAU TETAP BIKIN CHANNEL BARU, HAPUS KOMEN DI BAWAH:
-    # overwrites = {
-    #     guild.default_role: discord.PermissionOverwrite(read_messages=True, send_messages=False),
-    #     guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
-    # }
-    # channel = await guild.create_text_channel(
-    #     name="✅-transaksi-sukses",
-    #     overwrites=overwrites,
-    #     topic="✅ TRANSAKSI BERHASIL - BUKTI PEMBAYARAN"
-    # )
-    # return channel
-    
-    return None  # Kembalikan None kalo ga ketemu
-
-# ========== SEND LOG - PAKSA PAKE CHANNEL ID ==========
 async def send_success_log(guild, ticket_data):
-    # Panggil fungsi yang pake ID
-    channel = await get_public_log_channel(guild)
-    
-    # Kalo channel ga ketemu, JANGAN BIKIN BARU!
-    if not channel:
-        print(f"❌ Gagal kirim log: Channel {LOG_CHANNEL_ID} tidak ditemukan!")
-        return
-    
-    user = guild.get_member(int(ticket_data['user_id']))
-    buyer_name = user.display_name if user else "Unknown"
-    buyer_mention = user.mention if user else "Unknown"
-    
-    embed = discord.Embed(
-        title="🔔 TRANSAKSI BERHASIL",
-        color=0x00ff00,
-        timestamp=datetime.now()
-    )
-    embed.add_field(name="👤 Buyer", value=f"{buyer_name}\n{buyer_mention}", inline=True)
-    embed.add_field(name="🛒 Item", value=ticket_data['item_name'], inline=True)
-    embed.add_field(name="💰 Harga", value=f"Rp {ticket_data['price']:,}", inline=True)
-    embed.add_field(name="💳 Metode", value=ticket_data.get('payment_method', '-'), inline=True)
-    embed.set_footer(text="CELLYN STORE")
-    
-    try:
-        await channel.send(embed=embed)
-        print(f"✅ Log terkirim ke channel #{channel.name} ({channel.id})")
-    except Exception as e:
-        print(f"❌ Gagal kirim log: {e}")
+    # FUNGSI INI KOSONG! GA NGAPA-NGAPIN!
+    # JADI GA BIKIN CHANNEL BARU, GA KIRIM LOG, GA ERROR!
+    print(f"📋 [LOG DIMATIKAN] Transaksi sukses: {ticket_data['item_name']} - {ticket_data['price']}")
+    return  # LANGSUNG BALIK, GA NGAPA-NGAPIN!
 
-# ========== DATA PRODUK (POTONG BIAR RINGAN) ==========
+# ========== DATA PRODUK ==========
 PRODUCTS = [
     {"id": 1, "name": "CRESCENDO SCYTHE", "category": "LIMITED SKIN", "price": 80000},
     {"id": 2, "name": "CHROMATIC KATANA", "category": "LIMITED SKIN", "price": 85000},
@@ -126,9 +53,6 @@ PRODUCTS = [
     {"id": 18, "name": "🍀 SERVER LUCK X8", "category": "BOOST", "price": 73000},
     {"id": 19, "name": "NITRO BOOST 1 MONTH", "category": "NITRO", "price": 50000},
     {"id": 20, "name": "RF VIP 7DAY", "category": "RED FINGER", "price": 10000},
-    {"id": 21, "name": "RF KVIP 7DAY", "category": "RED FINGER", "price": 10000},
-    {"id": 22, "name": "RF SVIP 7DAY", "category": "RED FINGER", "price": 18000},
-    {"id": 23, "name": "RF XVIP 7DAY", "category": "RED FINGER", "price": 25000},
 ]
 
 # ========== SLASH COMMANDS ==========
@@ -306,12 +230,13 @@ async def on_interaction(interaction: discord.Interaction):
         ticket = active_tickets[channel_id]
         ticket['status'] = 'CONFIRMED'
         
-        # Kirim log ke channel publik - PAKSA PAKE ID!
-        await send_success_log(interaction.guild, ticket)
+        # ===== LOG DIMATIKAN! GA KIRIM APA-APA =====
+        # await send_success_log(interaction.guild, ticket)  ← INI DIMATIKAN!
+        print(f"✅ Transaksi selesai: {ticket['item_name']} - {ticket['user_id']}")
         
         embed = discord.Embed(
             title="✅ PEMBAYARAN DIKONFIRMASI!",
-            description=f"**Item:** {ticket['item_name']}\nTerima kasih sudah belanja!\n\n📋 Transaksi telah dicatat di channel <#{LOG_CHANNEL_ID}>",
+            description=f"**Item:** {ticket['item_name']}\nTerima kasih sudah belanja!",
             color=0x00ff00
         )
         await interaction.channel.send(embed=embed)
@@ -390,13 +315,29 @@ async def on_message(message):
     
     await bot.process_commands(message)
 
+# ========== ON READY ==========
+@bot.event
+async def on_ready():
+    print(f"🔥 BOT READY! Login sebagai {bot.user}")
+    print(f"✅ Bot aktif di {len(bot.guilds)} server")
+    print(f"👮 Role Staff: {STAFF_ROLE_NAME}")
+    print(f"💳 DANA: {DANA_NUMBER}")
+    print(f"🏦 BCA: {BCA_NUMBER}")
+    print(f"📋 LOG CHANNEL: DIMATIKAN! (Ga akan bikin channel baru)")
+    
+    try:
+        synced = await bot.tree.sync()
+        print(f"✅ Slash commands: {len(synced)} commands")
+        for cmd in synced:
+            print(f"   - /{cmd.name}")
+    except Exception as e:
+        print(f"❌ Error sync: {e}")
+
 # ========== RUN ==========
 if __name__ == "__main__":
     if not TOKEN:
         print("❌ ERROR: DISCORD_TOKEN tidak ditemukan di .env!")
         exit()
     print("🔥 Memulai bot CELLYN STORE...")
-    print(f"👮 Role Staff: {STAFF_ROLE_NAME}")
-    print(f"📋 Log Channel ID: {LOG_CHANNEL_ID} (DIKUNCI!)")
-    print("✅ Bot akan PAKSA pake channel ID ini untuk log!")
+    print("🚀 FITUR LOG CHANNEL NONAKTIF!")
     bot.run(TOKEN)
