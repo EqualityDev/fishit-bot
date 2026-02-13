@@ -3,7 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 import os
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -19,7 +19,13 @@ STAFF_ROLE_NAME = "Admin Store"
 DANA_NUMBER = "081266778093"
 BCA_NUMBER = "8565330655"
 RATE = 95
+
 active_tickets = {}
+transactions = []
+invoice_counter = 1000
+blacklist = set()
+user_transaction_count = {}
+LOG_CHANNEL_ID = None
 
 PRODUCTS = [
     {"id": 1, "name": "CRESCENDO SCYTHE", "category": "LIMITED SKIN", "price": 80000},
@@ -63,51 +69,169 @@ PRODUCTS = [
     {"id": 39, "name": "JASA REPLACE XVIP", "category": "RED FINGER", "price": 25000},
 ]
 
-@bot.event
-async def on_ready():
-    print(f"BOT READY - {bot.user}")
-    print(f"Server: {len(bot.guilds)}")
-    print(f"Staff Role: {STAFF_ROLE_NAME}")
-    
-    try:
-        synced = await bot.tree.sync()
-        print(f"Commands: {len(synced)}")
-        for cmd in synced:
-            print(f"  - /{cmd.name}")
-    except Exception as e:
-        print(f"Sync error: {e}")
+async def get_log_channel(guild):
+    global LOG_CHANNEL_ID
+    if LOG_CHANNEL_ID:
+        channel = guild.get_channel(LOG_CHANNEL_ID)
+        if channel:
+            return channel
+    channel = discord.utils.get(guild.channels, name="log-transaksi")
+    if not channel:
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(read_messages=True, send_messages=False),
+            guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
+        }
+        channel = await guild.create_text_channel(
+            name="log-transaksi",
+            overwrites=overwrites,
+            topic="LOG TRANSAKSI BERHASIL - CELLYN STORE"
+        )
+        embed = discord.Embed(
+            title="LOG TRANSAKSI CELLYN STORE",
+            description="Channel ini mencatat semua transaksi yang BERHASIL.",
+            color=0x00ff00,
+            timestamp=datetime.now()
+        )
+        embed.set_footer(text="CELLYN STORE")
+        await channel.send(embed=embed)
+    LOG_CHANNEL_ID = channel.id
+    return channel
 
-@bot.tree.command(name="catalog", description="Lihat semua item yang tersedia")
+def generate_invoice_number():
+    global invoice_counter
+    invoice_counter += 1
+    today = datetime.now().strftime("%Y%m%d")
+    return f"INV-{today}-{invoice_counter:04d}"
+
+async def send_invoice(guild, transaction_data):
+    channel = await get_log_channel(guild)
+    user = guild.get_member(int(transaction_data['user_id']))
+    user_name = user.display_name if user else "Unknown"
+    invoice_num = generate_invoice_number()
+    transaction_data['invoice'] = invoice_num
+    transaction_data['timestamp'] = datetime.now()
+    transactions.append(transaction_data)
+    user_id = transaction_data['user_id']
+    if user_id not in user_transaction_count:
+        user_transaction_count[user_id] = 0
+    user_transaction_count[user_id] += 1
+    embed = discord.Embed(
+        title="TRANSAKSI BERHASIL",
+        color=0x00ff00,
+        timestamp=datetime.now()
+    )
+    embed.add_field(name="NO. INVOICE", value=f"`{invoice_num}`", inline=False)
+    embed.add_field(name="CUSTOMER", value=f"{user_name}\n<@{transaction_data['user_id']}>", inline=True)
+    embed.add_field(name="ITEM", value=transaction_data['item_name'], inline=True)
+    embed.add_field(name="HARGA", value=f"Rp {transaction_data['price']:,}", inline=True)
+    embed.add_field(name="METODE", value=transaction_data.get('payment_method', '-'), inline=True)
+    embed.add_field(name="TANGGAL", value=datetime.now().strftime("%d/%m/%Y %H:%M"), inline=True)
+    embed.add_field(name="STATUS", value="LUNAS", inline=True)
+    if transaction_data.get('admin_id'):
+        admin = guild.get_member(int(transaction_data['admin_id']))
+        if admin:
+            embed.add_field(name="ADMIN", value=admin.mention, inline=True)
+    embed.set_footer(text="CELLYN STORE")
+    await channel.send(embed=embed)
+    return invoice_num
+
+@bot.tree.command(name="history", description="Lihat riwayat transaksi pribadi")
+async def history(interaction: discord.Interaction):
+    user_id = str(interaction.user.id)
+    user_transactions = [t for t in transactions if t['user_id'] == user_id]
+    if not user_transactions:
+        await interaction.response.send_message("Belum ada transaksi.", ephemeral=True)
+        return
+    last_5 = user_transactions[-5:]
+    embed = discord.Embed(
+        title="RIWAYAT TRANSAKSI",
+        description=f"Total: {len(user_transactions)} transaksi",
+        color=0x3498db
+    )
+    for t in reversed(last_5):
+        date_str = t['timestamp'].strftime("%d/%m/%Y %H:%M")
+        embed.add_field(
+            name=f"{t['invoice']} - {date_str}",
+            value=f"{t['item_name']} | Rp {t['price']:,} | {t.get('payment_method', '-')}",
+            inline=False
+        )
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.tree.command(name="stats", description="Lihat statistik penjualan (Admin only)")
+async def stats(interaction: discord.Interaction):
+    staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
+    if staff_role not in interaction.user.roles:
+        await interaction.response.send_message("Admin only!", ephemeral=True)
+        return
+    today = datetime.now().date()
+    week_ago = today - timedelta(days=7)
+    month_ago = today - timedelta(days=30)
+    today_trans = [t for t in transactions if t['timestamp'].date() == today]
+    week_trans = [t for t in transactions if t['timestamp'].date() >= week_ago]
+    month_trans = [t for t in transactions if t['timestamp'].date() >= month_ago]
+    total_revenue = sum(t['price'] for t in transactions)
+    today_revenue = sum(t['price'] for t in today_trans)
+    week_revenue = sum(t['price'] for t in week_trans)
+    month_revenue = sum(t['price'] for t in month_trans)
+    embed = discord.Embed(
+        title="STATISTIK PENJUALAN",
+        color=0x00ff00,
+        timestamp=datetime.now()
+    )
+    embed.add_field(name="HARI INI", value=f"{len(today_trans)} transaksi\nRp {today_revenue:,}", inline=True)
+    embed.add_field(name="7 HARI", value=f"{len(week_trans)} transaksi\nRp {week_revenue:,}", inline=True)
+    embed.add_field(name="30 HARI", value=f"{len(month_trans)} transaksi\nRp {month_revenue:,}", inline=True)
+    embed.add_field(name="TOTAL", value=f"{len(transactions)} transaksi\nRp {total_revenue:,}", inline=False)
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="blacklist", description="Blacklist user (Admin only)")
+@app_commands.describe(user="User yang akan diblacklist", reason="Alasan")
+async def blacklist_user(interaction: discord.Interaction, user: discord.User, reason: str = "No reason"):
+    staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
+    if staff_role not in interaction.user.roles:
+        await interaction.response.send_message("Admin only!", ephemeral=True)
+        return
+    blacklist.add(str(user.id))
+    embed = discord.Embed(
+        title="BLACKLIST",
+        description=f"User: {user.mention}\nAlasan: {reason}",
+        color=0xff0000,
+        timestamp=datetime.now()
+    )
+    embed.set_footer(text=f"Oleh: {interaction.user.name}")
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="unblacklist", description="Hapus user dari blacklist (Admin only)")
+@app_commands.describe(user="User yang akan dihapus dari blacklist")
+async def unblacklist(interaction: discord.Interaction, user: discord.User):
+    staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
+    if staff_role not in interaction.user.roles:
+        await interaction.response.send_message("Admin only!", ephemeral=True)
+        return
+    if str(user.id) in blacklist:
+        blacklist.remove(str(user.id))
+        await interaction.response.send_message(f"{user.mention} dihapus dari blacklist.")
+    else:
+        await interaction.response.send_message(f"{user.mention} tidak ada di blacklist.", ephemeral=True)
+
+@bot.tree.command(name="catalog", description="Lihat semua item")
 async def catalog(interaction: discord.Interaction):
     await interaction.response.defer()
-    
     categories = {}
     for p in PRODUCTS:
         if p['category'] not in categories:
             categories[p['category']] = []
         categories[p['category']].append(p)
-    
     embed = discord.Embed(
-        title="FISH IT STORE - READY STOCK",
+        title="CELLYN STORE - READY STOCK",
         description=f"Rate: 1 RBX = Rp {RATE:,}\nPayment: QRIS / DANA / BCA",
         color=0x00ff00
     )
-    
-    category_names = {
-        "LIMITED SKIN": "LIMITED SKIN",
-        "GAMEPASS": "GAMEPASS",
-        "CRATE": "CRATE",
-        "BOOST": "BOOST",
-        "NITRO": "NITRO",
-        "RED FINGER": "RED FINGER"
-    }
-    
     for cat, items in categories.items():
         value = ""
         for item in items[:5]:
             value += f"{item['name']} - Rp {item['price']:,}\n"
-        embed.add_field(name=category_names.get(cat, cat), value=value or "-", inline=False)
-    
+        embed.add_field(name=cat, value=value or "-", inline=False)
     view = discord.ui.View()
     for cat in categories.keys():
         view.add_item(discord.ui.Button(
@@ -115,10 +239,9 @@ async def catalog(interaction: discord.Interaction):
             style=discord.ButtonStyle.primary, 
             custom_id=f"buy_{cat}"
         ))
-    
     await interaction.followup.send(embed=embed, view=view)
 
-@bot.tree.command(name="rate", description="Cek rate Robux saat ini")
+@bot.tree.command(name="rate", description="Cek rate Robux")
 async def rate_cmd(interaction: discord.Interaction):
     await interaction.response.send_message(f"1 RBX = Rp {RATE:,}")
 
@@ -129,7 +252,6 @@ async def setrate(interaction: discord.Interaction, rate: int):
     if staff_role not in interaction.user.roles:
         await interaction.response.send_message("Admin only!", ephemeral=True)
         return
-    
     global RATE
     RATE = rate
     await interaction.response.send_message(f"Rate updated: 1 RBX = Rp {rate:,}")
@@ -141,13 +263,10 @@ async def upload_qris(interaction: discord.Interaction, image: discord.Attachmen
     if staff_role not in interaction.user.roles:
         await interaction.response.send_message("Admin only!", ephemeral=True)
         return
-    
     if not image.content_type.startswith('image/'):
         await interaction.response.send_message("File must be image!", ephemeral=True)
         return
-    
     await interaction.response.defer(ephemeral=True)
-    
     qr_channel = discord.utils.get(interaction.guild.channels, name="qr-code")
     if not qr_channel:
         qr_channel = await interaction.guild.create_text_channel(
@@ -157,71 +276,66 @@ async def upload_qris(interaction: discord.Interaction, image: discord.Attachmen
                 interaction.guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
             }
         )
-    
     embed = discord.Embed(title="QRIS PAYMENT", color=0x00ff00)
     embed.set_image(url=image.url)
     embed.set_footer(text=f"Uploaded by {interaction.user.name}")
-    
     await qr_channel.send(embed=embed)
     await interaction.followup.send(f"QRIS uploaded to {qr_channel.mention}", ephemeral=True)
 
-@bot.tree.command(name="qris", description="Lihat QR code pembayaran")
+@bot.tree.command(name="qris", description="Lihat QR code")
 async def cek_qris(interaction: discord.Interaction):
     qr_channel = discord.utils.get(interaction.guild.channels, name="qr-code")
     if not qr_channel:
         await interaction.response.send_message("QR code not available!", ephemeral=True)
         return
-    
     async for msg in qr_channel.history(limit=10):
         if msg.author == bot.user and msg.embeds:
             await interaction.response.send_message(embed=msg.embeds[0])
             return
-    
     await interaction.response.send_message("QR code not found!", ephemeral=True)
 
 @bot.event
 async def on_interaction(interaction: discord.Interaction):
     if interaction.type != discord.InteractionType.component:
         return
-    
     custom_id = interaction.data.get('custom_id', '')
-    
+    if str(interaction.user.id) in blacklist:
+        await interaction.response.send_message("Kamu diblacklist dari CELLYN STORE.", ephemeral=True)
+        return
     if custom_id.startswith('buy_'):
         category = custom_id.replace('buy_', '')
         items = [p for p in PRODUCTS if p['category'] == category]
-        
-        embed = discord.Embed(title=f"{category}", description="Select item:", color=0x3498db)
+        embed = discord.Embed(title=category, description="Pilih item:", color=0x3498db)
         view = discord.ui.View()
-        
         for item in items[:10]:
             view.add_item(discord.ui.Button(
                 label=f"{item['name'][:50]} - Rp {item['price']:,}",
                 style=discord.ButtonStyle.secondary,
                 custom_id=f"item_{item['id']}"
             ))
-        
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-    
     elif custom_id.startswith('item_'):
         item_id = int(custom_id.replace('item_', ''))
         item = next((p for p in PRODUCTS if p['id'] == item_id), None)
-        
         if not item:
             await interaction.response.send_message("Item not found!", ephemeral=True)
             return
-        
+        if str(interaction.user.id) in blacklist:
+            await interaction.response.send_message("Kamu diblacklist!", ephemeral=True)
+            return
         user = interaction.user
         guild = interaction.guild
-        
         for t in active_tickets.values():
             if t['user_id'] == str(user.id) and t['status'] == 'OPEN':
                 await interaction.response.send_message("You have an active ticket! Use !cancel", ephemeral=True)
                 return
-        
+        user_tickets = [t for t in active_tickets.values() if t['user_id'] == str(user.id)]
+        if len(user_tickets) >= 3:
+            await interaction.response.send_message("Maksimal 3 tiket aktif!", ephemeral=True)
+            return
         category = discord.utils.get(guild.categories, name="TICKETS")
         if not category:
             category = await guild.create_category("TICKETS")
-        
         channel = await guild.create_text_channel(
             name=f"ticket-{user.name}-{random.randint(100,999)}",
             category=category,
@@ -231,52 +345,46 @@ async def on_interaction(interaction: discord.Interaction):
                 guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
             }
         )
-        
         ticket = {
             'channel_id': str(channel.id),
             'user_id': str(user.id),
+            'item_id': item['id'],
             'item_name': item['name'],
             'price': item['price'],
             'status': 'OPEN',
-            'payment_method': None
+            'payment_method': None,
+            'created_at': datetime.now()
         }
         active_tickets[str(channel.id)] = ticket
-        
-        embed = discord.Embed(title="TICKET", color=0xffa500)
-        embed.description = f"Item: {item['name']}\nPrice: Rp {item['price']:,}"
+        embed = discord.Embed(title="TICKET PEMBELIAN", color=0xffa500)
+        embed.description = f"Item: {item['name']}\nHarga: Rp {item['price']:,}"
         embed.add_field(name="Payment Method", value="1. QRIS\n2. DANA\n3. BCA", inline=False)
         embed.add_field(name="Cancel", value="Type !cancel to cancel", inline=False)
-        
-        await channel.send(f"Hello {user.mention}!", embed=embed)
+        await channel.send(f"Halo {user.mention}!", embed=embed)
         await interaction.response.send_message(f"Ticket created: {channel.mention}", ephemeral=True)
-    
     elif custom_id == "confirm_payment":
         channel_id = str(interaction.channel.id)
-        
         if channel_id not in active_tickets:
             await interaction.response.send_message("Ticket not found!", ephemeral=True)
             return
-        
         staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
         if staff_role not in interaction.user.roles:
             await interaction.response.send_message("Admin only!", ephemeral=True)
             return
-        
         ticket = active_tickets[channel_id]
         ticket['status'] = 'CONFIRMED'
-        
+        ticket['admin_id'] = str(interaction.user.id)
+        invoice_num = await send_invoice(interaction.guild, ticket)
         embed = discord.Embed(
             title="PAYMENT CONFIRMED",
-            description=f"Item: {ticket['item_name']}\nThank you for your purchase!",
+            description=f"Item: {ticket['item_name']}\nInvoice: `{invoice_num}`\nTerima kasih telah berbelanja!",
             color=0x00ff00
         )
-        
+        embed.set_footer(text="CELLYN STORE")
         await interaction.channel.send(embed=embed)
-        await interaction.response.send_message("Ticket will be closed in 5 seconds...", ephemeral=True)
-        
+        await interaction.response.send_message("Ticket akan ditutup dalam 5 detik...", ephemeral=True)
         import asyncio
         await asyncio.sleep(5)
-        
         if channel_id in active_tickets:
             del active_tickets[channel_id]
         await interaction.channel.delete()
@@ -285,69 +393,13 @@ async def on_interaction(interaction: discord.Interaction):
 async def on_message(message):
     if message.author.bot:
         return
-    
+    if str(message.author.id) in blacklist:
+        return
     if message.content.lower() == '!cancel' and message.channel.name and message.channel.name.startswith('ticket-'):
         channel_id = str(message.channel.id)
         if channel_id in active_tickets and active_tickets[channel_id]['status'] == 'OPEN':
             ticket = active_tickets[channel_id]
             staff_role = discord.utils.get(message.guild.roles, name=STAFF_ROLE_NAME)
-            
             if str(message.author.id) == ticket['user_id'] or staff_role in message.author.roles:
                 ticket['status'] = 'CANCELLED'
-                await message.channel.send("Transaction cancelled. Ticket closed.")
-                
-                import asyncio
-                await asyncio.sleep(3)
-                
-                del active_tickets[channel_id]
-                await message.channel.delete()
-                return
-    
-    if message.channel.name and message.channel.name.startswith('ticket-'):
-        channel_id = str(message.channel.id)
-        if channel_id in active_tickets and active_tickets[channel_id]['status'] == 'OPEN':
-            ticket = active_tickets[channel_id]
-            
-            if message.content.strip() in ['1','2','3']:
-                methods = ['QRIS', 'DANA', 'BCA']
-                method = methods[int(message.content) - 1]
-                ticket['payment_method'] = method
-                
-                if method == 'QRIS':
-                    await message.channel.send("Use /qris to see QR code")
-                elif method == 'DANA':
-                    embed = discord.Embed(
-                        title="DANA",
-                        description=f"Transfer to:\n`{DANA_NUMBER}`",
-                        color=0x00ff00
-                    )
-                    await message.channel.send(embed=embed)
-                elif method == 'BCA':
-                    embed = discord.Embed(
-                        title="BCA",
-                        description=f"Transfer to:\n`{BCA_NUMBER}`",
-                        color=0x00ff00
-                    )
-                    await message.channel.send(embed=embed)
-                
-                view = discord.ui.View()
-                view.add_item(discord.ui.Button(
-                    label="PAID",
-                    style=discord.ButtonStyle.success,
-                    custom_id="confirm_payment"
-                ))
-                await message.channel.send("Already paid? Click button below:", view=view)
-                
-                staff_role = discord.utils.get(message.guild.roles, name=STAFF_ROLE_NAME)
-                if staff_role:
-                    await message.channel.send(f"{staff_role.mention} New payment!")
-    
-    await bot.process_commands(message)
-
-if __name__ == "__main__":
-    if not TOKEN:
-        print("ERROR: DISCORD_TOKEN not found in .env")
-        exit()
-    
-    print("Starting bot...")
-    bot.run(TOKEN)
+                await message.channel.send("Trans
