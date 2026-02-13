@@ -264,7 +264,7 @@ async def upload_qris(interaction: discord.Interaction, image: discord.Attachmen
         await interaction.response.send_message("Admin only!", ephemeral=True)
         return
     if not image.content_type.startswith('image/'):
-        await interaction.response.send_message("File must be image!", ephemeral=True)
+        await interaction.response.send_message("File harus gambar!", ephemeral=True)
         return
     await interaction.response.defer(ephemeral=True)
     qr_channel = discord.utils.get(interaction.guild.channels, name="qr-code")
@@ -286,13 +286,13 @@ async def upload_qris(interaction: discord.Interaction, image: discord.Attachmen
 async def cek_qris(interaction: discord.Interaction):
     qr_channel = discord.utils.get(interaction.guild.channels, name="qr-code")
     if not qr_channel:
-        await interaction.response.send_message("QR code not available!", ephemeral=True)
+        await interaction.response.send_message("QR code tidak tersedia!", ephemeral=True)
         return
     async for msg in qr_channel.history(limit=10):
         if msg.author == bot.user and msg.embeds:
             await interaction.response.send_message(embed=msg.embeds[0])
             return
-    await interaction.response.send_message("QR code not found!", ephemeral=True)
+    await interaction.response.send_message("QR code tidak ditemukan!", ephemeral=True)
 
 @bot.event
 async def on_interaction(interaction: discord.Interaction):
@@ -318,7 +318,7 @@ async def on_interaction(interaction: discord.Interaction):
         item_id = int(custom_id.replace('item_', ''))
         item = next((p for p in PRODUCTS if p['id'] == item_id), None)
         if not item:
-            await interaction.response.send_message("Item not found!", ephemeral=True)
+            await interaction.response.send_message("Item tidak ditemukan!", ephemeral=True)
             return
         if str(interaction.user.id) in blacklist:
             await interaction.response.send_message("Kamu diblacklist!", ephemeral=True)
@@ -327,7 +327,7 @@ async def on_interaction(interaction: discord.Interaction):
         guild = interaction.guild
         for t in active_tickets.values():
             if t['user_id'] == str(user.id) and t['status'] == 'OPEN':
-                await interaction.response.send_message("You have an active ticket! Use !cancel", ephemeral=True)
+                await interaction.response.send_message("Kamu masih punya tiket aktif! Gunakan !cancel", ephemeral=True)
                 return
         user_tickets = [t for t in active_tickets.values() if t['user_id'] == str(user.id)]
         if len(user_tickets) >= 3:
@@ -365,7 +365,7 @@ async def on_interaction(interaction: discord.Interaction):
     elif custom_id == "confirm_payment":
         channel_id = str(interaction.channel.id)
         if channel_id not in active_tickets:
-            await interaction.response.send_message("Ticket not found!", ephemeral=True)
+            await interaction.response.send_message("Ticket tidak ditemukan!", ephemeral=True)
             return
         staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
         if staff_role not in interaction.user.roles:
@@ -402,4 +402,4 @@ async def on_message(message):
             staff_role = discord.utils.get(message.guild.roles, name=STAFF_ROLE_NAME)
             if str(message.author.id) == ticket['user_id'] or staff_role in message.author.roles:
                 ticket['status'] = 'CANCELLED'
-                await message.channel.send("Trans
+                await me
