@@ -102,10 +102,9 @@ async def send_invoice(guild, transaction_data):
     transaction_data['invoice'] = invoice_num
     transaction_data['timestamp'] = datetime.now()
     transactions.append(transaction_data)
-    user_id = transaction_data['user_id']
-    if user_id not in user_transaction_count:
-        user_transaction_count[user_id] = 0
-    user_transaction_count[user_id] += 1
+    items_list = ""
+    for item in transaction_data['items']:
+        items_list += f"{item['qty']}x {item['name']} = Rp {item['price'] * item['qty']:,}\n"
     embed = discord.Embed(
         title="TRANSAKSI BERHASIL",
         color=0x00ff00,
@@ -113,11 +112,9 @@ async def send_invoice(guild, transaction_data):
     )
     embed.add_field(name="NO. INVOICE", value=f"`{invoice_num}`", inline=False)
     embed.add_field(name="CUSTOMER", value=f"{user_name}\n<@{transaction_data['user_id']}>", inline=True)
-    embed.add_field(name="ITEM", value=transaction_data['item_name'], inline=True)
-    embed.add_field(name="HARGA", value=f"Rp {transaction_data['price']:,}", inline=True)
+    embed.add_field(name="ITEMS", value=items_list, inline=False)
+    embed.add_field(name="TOTAL", value=f"Rp {transaction_data['total_price']:,}", inline=True)
     embed.add_field(name="METODE", value=transaction_data.get('payment_method', '-'), inline=True)
-    embed.add_field(name="TANGGAL", value=datetime.now().strftime("%d/%m/%Y %H:%M"), inline=True)
-    embed.add_field(name="STATUS", value="LUNAS", inline=True)
     if transaction_data.get('admin_id'):
         admin = guild.get_member(int(transaction_data['admin_id']))
         if admin:
@@ -125,6 +122,12 @@ async def send_invoice(guild, transaction_data):
     embed.set_footer(text="CELLYN STORE")
     await channel.send(embed=embed)
     return invoice_num
+def calculate_total(items):
+    return sum(item['price'] * item['qty'] for item in items)
+def format_items(items):
+    if not items:
+        return "Tidak ada item"
+    return "\n".join([f"{item['qty']}x {item['name']} = Rp {item['price']*item['qty']:,}" for item in items])
 @bot.tree.command(name="history", description="Lihat riwayat transaksi pribadi")
 async def history(interaction: discord.Interaction):
     user_id = str(interaction.user.id)
@@ -140,9 +143,12 @@ async def history(interaction: discord.Interaction):
     )
     for t in reversed(last_5):
         date_str = t['timestamp'].strftime("%d/%m/%Y %H:%M")
+        items_short = ", ".join([f"{i['qty']}x {i['name'][:15]}" for i in t['items'][:2]])
+        if len(t['items']) > 2:
+            items_short += f" +{len(t['items'])-2} lagi"
         embed.add_field(
             name=f"{t['invoice']} - {date_str}",
-            value=f"{t['item_name']} | Rp {t['price']:,} | {t.get('payment_method', '-')}",
+            value=f"{items_short} | Rp {t['total_price']:,} | {t.get('payment_method', '-')}",
             inline=False
         )
     await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -158,10 +164,10 @@ async def stats(interaction: discord.Interaction):
     today_trans = [t for t in transactions if t['timestamp'].date() == today]
     week_trans = [t for t in transactions if t['timestamp'].date() >= week_ago]
     month_trans = [t for t in transactions if t['timestamp'].date() >= month_ago]
-    total_revenue = sum(t['price'] for t in transactions)
-    today_revenue = sum(t['price'] for t in today_trans)
-    week_revenue = sum(t['price'] for t in week_trans)
-    month_revenue = sum(t['price'] for t in month_trans)
+    total_revenue = sum(t['total_price'] for t in transactions)
+    today_revenue = sum(t['total_price'] for t in today_trans)
+    week_revenue = sum(t['total_price'] for t in week_trans)
+    month_revenue = sum(t['total_price'] for t in month_trans)
     embed = discord.Embed(
         title="STATISTIK PENJUALAN",
         color=0x00ff00,
@@ -213,18 +219,22 @@ async def catalog(interaction: discord.Interaction):
         description=f"Rate: 1 RBX = Rp {RATE:,}\nPayment: QRIS / DANA / BCA",
         color=0x00ff00
     )
-    for cat, items in categories.items():
-        value = ""
-        for item in items[:5]:
-            value += f"{item['name']} - Rp {item['price']:,}\n"
-        embed.add_field(name=cat, value=value or "-", inline=False)
+    category_order = ["LIMITED SKIN", "GAMEPASS", "CRATE", "BOOST", "NITRO", "RED FINGER"]
+    for cat in category_order:
+        if cat in categories:
+            items = categories[cat][:5]
+            value = ""
+            for item in items:
+                value += f"ID:{item['id']} - {item['name']} - Rp {item['price']:,}\n"
+            embed.add_field(name=cat, value=value or "-", inline=False)
     view = discord.ui.View()
-    for cat in categories.keys():
-        view.add_item(discord.ui.Button(
-            label=f"BUY {cat}", 
-            style=discord.ButtonStyle.primary, 
-            custom_id=f"buy_{cat}"
-        ))
+    for cat in category_order:
+        if cat in categories:
+            view.add_item(discord.ui.Button(
+                label=f"BUY {cat}", 
+                style=discord.ButtonStyle.primary, 
+                custom_id=f"buy_{cat}"
+            ))
     await interaction.followup.send(embed=embed, view=view)
 @bot.tree.command(name="rate", description="Cek rate Robux")
 async def rate_cmd(interaction: discord.Interaction):
@@ -275,6 +285,115 @@ async def cek_qris(interaction: discord.Interaction):
             await interaction.response.send_message(embed=msg.embeds[0])
             return
     await interaction.response.send_message("QR code tidak ditemukan!", ephemeral=True)
+@bot.tree.command(name="additem", description="➕ Tambah item ke tiket ini")
+@app_commands.describe(item_id="ID item", qty="Jumlah (default 1)")
+async def add_item_to_ticket(interaction: discord.Interaction, item_id: int, qty: int = 1):
+    if not interaction.channel.name.startswith('ticket-'):
+        await interaction.response.send_message("❌ Ini bukan channel tiket!", ephemeral=True)
+        return
+    channel_id = str(interaction.channel.id)
+    if channel_id not in active_tickets or active_tickets[channel_id]['status'] != 'OPEN':
+        await interaction.response.send_message("❌ Tiket tidak ditemukan atau sudah closed!", ephemeral=True)
+        return
+    item = next((p for p in PRODUCTS if p['id'] == item_id), None)
+    if not item:
+        await interaction.response.send_message("❌ Item tidak ditemukan!", ephemeral=True)
+        return
+    ticket = active_tickets[channel_id]
+    staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
+    is_owner = str(interaction.user.id) == ticket['user_id']
+    is_admin = staff_role in interaction.user.roles
+    if not (is_owner or is_admin):
+        await interaction.response.send_message("❌ Hanya pemilik tiket atau admin yang bisa nambah item!", ephemeral=True)
+        return
+    found = False
+    for existing in ticket['items']:
+        if existing['id'] == item_id:
+            existing['qty'] += qty
+            found = True
+            break
+    if not found:
+        ticket['items'].append({
+            "id": item['id'],
+            "name": item['name'],
+            "price": item['price'],
+            "qty": qty
+        })
+    ticket['total_price'] = calculate_total(ticket['items'])
+    embed = discord.Embed(
+        title="➕ ITEM DITAMBAHKAN",
+        description=f"**{qty}x {item['name']}** berhasil ditambahkan!",
+        color=0x00ff00
+    )
+    embed.add_field(name="🛒 ITEMS SAAT INI", value=format_items(ticket['items']), inline=False)
+    embed.add_field(name="💰 TOTAL", value=f"Rp {ticket['total_price']:,}", inline=False)
+    await interaction.response.send_message(embed=embed)
+@bot.tree.command(name="removeitem", description="➖ Hapus item dari tiket ini")
+@app_commands.describe(item_id="ID item", qty="Jumlah yang dihapus (default semua)")
+async def remove_item_from_ticket(interaction: discord.Interaction, item_id: int, qty: int = None):
+    if not interaction.channel.name.startswith('ticket-'):
+        await interaction.response.send_message("❌ Ini bukan channel tiket!", ephemeral=True)
+        return
+    channel_id = str(interaction.channel.id)
+    if channel_id not in active_tickets or active_tickets[channel_id]['status'] != 'OPEN':
+        await interaction.response.send_message("❌ Tiket tidak ditemukan!", ephemeral=True)
+        return
+    ticket = active_tickets[channel_id]
+    staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
+    is_owner = str(interaction.user.id) == ticket['user_id']
+    is_admin = staff_role in interaction.user.roles
+    if not (is_owner or is_admin):
+        await interaction.response.send_message("❌ Hanya pemilik tiket atau admin yang bisa hapus item!", ephemeral=True)
+        return
+    item_found = None
+    item_index = None
+    for i, item in enumerate(ticket['items']):
+        if item['id'] == item_id:
+            item_found = item
+            item_index = i
+            break
+    if not item_found:
+        await interaction.response.send_message("❌ Item tidak ditemukan di tiket ini!", ephemeral=True)
+        return
+    if qty is None or qty >= item_found['qty']:
+        removed_item = ticket['items'].pop(item_index)
+        removal_msg = f"✅ **{removed_item['qty']}x {removed_item['name']}** dihapus dari tiket!"
+    else:
+        ticket['items'][item_index]['qty'] -= qty
+        removal_msg = f"✅ **{qty}x {item_found['name']}** dikurangi!\nSisa: {ticket['items'][item_index]['qty']}x"
+    ticket['total_price'] = calculate_total(ticket['items'])
+    if not ticket['items']:
+        await interaction.channel.send("🔄 Tiket kosong, menutup tiket dalam 5 detik...")
+        import asyncio
+        await asyncio.sleep(5)
+        del active_tickets[channel_id]
+        await interaction.channel.delete()
+        return
+    embed = discord.Embed(
+        title="➖ ITEM DIHAPUS",
+        description=removal_msg,
+        color=0xffa500
+    )
+    embed.add_field(name="🛒 ITEMS SAAT INI", value=format_items(ticket['items']), inline=False)
+    embed.add_field(name="💰 TOTAL", value=f"Rp {ticket['total_price']:,}", inline=False)
+    await interaction.response.send_message(embed=embed)
+@bot.tree.command(name="items", description="📋 Lihat item di tiket ini")
+async def list_items(interaction: discord.Interaction):
+    if not interaction.channel.name.startswith('ticket-'):
+        await interaction.response.send_message("❌ Ini bukan channel tiket!", ephemeral=True)
+        return
+    channel_id = str(interaction.channel.id)
+    if channel_id not in active_tickets:
+        await interaction.response.send_message("❌ Tiket tidak ditemukan!", ephemeral=True)
+        return
+    ticket = active_tickets[channel_id]
+    embed = discord.Embed(
+        title="🛒 DAFTAR ITEM",
+        description=format_items(ticket['items']) or "Belum ada item",
+        color=0x3498db
+    )
+    embed.add_field(name="💰 TOTAL", value=f"Rp {ticket['total_price']:,}", inline=False)
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 @bot.event
 async def on_interaction(interaction: discord.Interaction):
     if interaction.type != discord.InteractionType.component:
@@ -286,11 +405,11 @@ async def on_interaction(interaction: discord.Interaction):
     if custom_id.startswith('buy_'):
         category = custom_id.replace('buy_', '')
         items = [p for p in PRODUCTS if p['category'] == category]
-        embed = discord.Embed(title=category, description="Pilih item:", color=0x3498db)
+        embed = discord.Embed(title=category, description="Pilih item (catat ID nya):", color=0x3498db)
         view = discord.ui.View()
         for item in items[:10]:
             view.add_item(discord.ui.Button(
-                label=f"{item['name'][:50]} - Rp {item['price']:,}",
+                label=f"ID:{item['id']} - {item['name'][:30]} - Rp {item['price']:,}",
                 style=discord.ButtonStyle.secondary,
                 custom_id=f"item_{item['id']}"
             ))
@@ -329,18 +448,20 @@ async def on_interaction(interaction: discord.Interaction):
         ticket = {
             'channel_id': str(channel.id),
             'user_id': str(user.id),
-            'item_id': item['id'],
-            'item_name': item['name'],
-            'price': item['price'],
+            'items': [{"id": item['id'], "name": item['name'], "price": item['price'], "qty": 1}],
+            'total_price': item['price'],
             'status': 'OPEN',
             'payment_method': None,
             'created_at': datetime.now()
         }
         active_tickets[str(channel.id)] = ticket
-        embed = discord.Embed(title="TICKET PEMBELIAN", color=0xffa500)
-        embed.description = f"Item: {item['name']}\nHarga: Rp {item['price']:,}"
-        embed.add_field(name="Payment Method", value="1. QRIS\n2. DANA\n3. BCA", inline=False)
-        embed.add_field(name="Cancel", value="Type !cancel to cancel", inline=False)
+        embed = discord.Embed(title="🧾 TICKET PEMBELIAN", color=0xffa500)
+        embed.description = f"**Item:**\n1x {item['name']}\n**Harga:** Rp {item['price']:,}"
+        embed.add_field(name="➕ NAMBAH ITEM", value="Gunakan `/additem [id] [jumlah]`", inline=False)
+        embed.add_field(name="➖ HAPUS ITEM", value="Gunakan `/removeitem [id] [jumlah]`", inline=False)
+        embed.add_field(name="📋 LIHAT ITEM", value="Gunakan `/items`", inline=False)
+        embed.add_field(name="💳 PAYMENT", value="1. QRIS\n2. DANA\n3. BCA", inline=False)
+        embed.add_field(name="❌ CANCEL", value="Ketik !cancel", inline=False)
         await channel.send(f"Halo {user.mention}!", embed=embed)
         await interaction.response.send_message(f"Ticket created: {channel.mention}", ephemeral=True)
     elif custom_id == "confirm_payment":
@@ -355,10 +476,19 @@ async def on_interaction(interaction: discord.Interaction):
         ticket = active_tickets[channel_id]
         ticket['status'] = 'CONFIRMED'
         ticket['admin_id'] = str(interaction.user.id)
-        invoice_num = await send_invoice(interaction.guild, ticket)
+        invoice_num = await send_invoice(interaction.guild, {
+            'user_id': ticket['user_id'],
+            'items': ticket['items'],
+            'total_price': ticket['total_price'],
+            'payment_method': ticket.get('payment_method'),
+            'admin_id': str(interaction.user.id)
+        })
+        items_short = ", ".join([f"{i['qty']}x {i['name'][:15]}" for i in ticket['items'][:2]])
+        if len(ticket['items']) > 2:
+            items_short += f" +{len(ticket['items'])-2} lagi"
         embed = discord.Embed(
-            title="PAYMENT CONFIRMED",
-            description=f"Item: {ticket['item_name']}\nInvoice: `{invoice_num}`\nTerima kasih telah berbelanja!",
+            title="✅ PAYMENT CONFIRMED",
+            description=f"**Items:** {items_short}\n**Total: Rp {ticket['total_price']:,}**\nInvoice: `{invoice_num}`\nTerima kasih!",
             color=0x00ff00
         )
         embed.set_footer(text="CELLYN STORE")
@@ -396,22 +526,24 @@ async def on_message(message):
                 methods = ['QRIS', 'DANA', 'BCA']
                 method = methods[int(message.content) - 1]
                 ticket['payment_method'] = method
+                total = ticket['total_price']
                 if method == 'QRIS':
                     await message.channel.send("Gunakan /qris untuk melihat QR code")
                 elif method == 'DANA':
                     embed = discord.Embed(
                         title="DANA",
-                        description=f"Transfer ke:\n`{DANA_NUMBER}`",
+                        description=f"Transfer ke:\n`{DANA_NUMBER}`\n\n**TOTAL: Rp {total:,}**",
                         color=0x00ff00
                     )
                     await message.channel.send(embed=embed)
                 elif method == 'BCA':
                     embed = discord.Embed(
                         title="BCA",
-                        description=f"Transfer ke:\n`{BCA_NUMBER}`",
+                        description=f"Transfer ke:\n`{BCA_NUMBER}`\n\n**TOTAL: Rp {total:,}**",
                         color=0x00ff00
                     )
                     await message.channel.send(embed=embed)
+                await message.channel.send(f"**🛒 ITEMS:**\n{format_items(ticket['items'])}\n**💰 TOTAL: Rp {total:,}**")
                 view = discord.ui.View()
                 view.add_item(discord.ui.Button(
                     label="PAID",
@@ -442,5 +574,5 @@ if __name__ == "__main__":
         print("ERROR: DISCORD_TOKEN not found in .env")
         exit()
     print("Starting CELLYN STORE BOT...")
-    print("Fitur: Custom Invoice, Log Publik, History, Blacklist, Max 3 tickets")
+    print("Fitur: Multi-item, Additem, Removeitem, Items, Custom Invoice")
     bot.run(TOKEN)
