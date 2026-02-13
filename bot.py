@@ -1,32 +1,26 @@
-import discord  
+import discord
 from discord import app_commands
 from discord.ext import commands
 import os
 import random
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
-
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
-
 bot = commands.Bot(command_prefix='!', intents=intents)
-
 STAFF_ROLE_NAME = "Admin Store"
 DANA_NUMBER = "081266778093"
 BCA_NUMBER = "8565330655"
 RATE = 95
-
 active_tickets = {}
 transactions = []
 invoice_counter = 1000
 blacklist = set()
 user_transaction_count = {}
 LOG_CHANNEL_ID = None
-
 PRODUCTS = [
     {"id": 1, "name": "CRESCENDO SCYTHE", "category": "LIMITED SKIN", "price": 80000},
     {"id": 2, "name": "CHROMATIC KATANA", "category": "LIMITED SKIN", "price": 85000},
@@ -68,7 +62,6 @@ PRODUCTS = [
     {"id": 38, "name": "JASA REPLACE SVIP", "category": "RED FINGER", "price": 18000},
     {"id": 39, "name": "JASA REPLACE XVIP", "category": "RED FINGER", "price": 25000},
 ]
-
 async def get_log_channel(guild):
     global LOG_CHANNEL_ID
     if LOG_CHANNEL_ID:
@@ -96,13 +89,11 @@ async def get_log_channel(guild):
         await channel.send(embed=embed)
     LOG_CHANNEL_ID = channel.id
     return channel
-
 def generate_invoice_number():
     global invoice_counter
     invoice_counter += 1
     today = datetime.now().strftime("%Y%m%d")
     return f"INV-{today}-{invoice_counter:04d}"
-
 async def send_invoice(guild, transaction_data):
     channel = await get_log_channel(guild)
     user = guild.get_member(int(transaction_data['user_id']))
@@ -134,7 +125,6 @@ async def send_invoice(guild, transaction_data):
     embed.set_footer(text="CELLYN STORE")
     await channel.send(embed=embed)
     return invoice_num
-
 @bot.tree.command(name="history", description="Lihat riwayat transaksi pribadi")
 async def history(interaction: discord.Interaction):
     user_id = str(interaction.user.id)
@@ -156,7 +146,6 @@ async def history(interaction: discord.Interaction):
             inline=False
         )
     await interaction.response.send_message(embed=embed, ephemeral=True)
-
 @bot.tree.command(name="stats", description="Lihat statistik penjualan (Admin only)")
 async def stats(interaction: discord.Interaction):
     staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
@@ -183,7 +172,6 @@ async def stats(interaction: discord.Interaction):
     embed.add_field(name="30 HARI", value=f"{len(month_trans)} transaksi\nRp {month_revenue:,}", inline=True)
     embed.add_field(name="TOTAL", value=f"{len(transactions)} transaksi\nRp {total_revenue:,}", inline=False)
     await interaction.response.send_message(embed=embed)
-
 @bot.tree.command(name="blacklist", description="Blacklist user (Admin only)")
 @app_commands.describe(user="User yang akan diblacklist", reason="Alasan")
 async def blacklist_user(interaction: discord.Interaction, user: discord.User, reason: str = "No reason"):
@@ -200,7 +188,6 @@ async def blacklist_user(interaction: discord.Interaction, user: discord.User, r
     )
     embed.set_footer(text=f"Oleh: {interaction.user.name}")
     await interaction.response.send_message(embed=embed)
-
 @bot.tree.command(name="unblacklist", description="Hapus user dari blacklist (Admin only)")
 @app_commands.describe(user="User yang akan dihapus dari blacklist")
 async def unblacklist(interaction: discord.Interaction, user: discord.User):
@@ -213,7 +200,6 @@ async def unblacklist(interaction: discord.Interaction, user: discord.User):
         await interaction.response.send_message(f"{user.mention} dihapus dari blacklist.")
     else:
         await interaction.response.send_message(f"{user.mention} tidak ada di blacklist.", ephemeral=True)
-
 @bot.tree.command(name="catalog", description="Lihat semua item")
 async def catalog(interaction: discord.Interaction):
     await interaction.response.defer()
@@ -240,11 +226,9 @@ async def catalog(interaction: discord.Interaction):
             custom_id=f"buy_{cat}"
         ))
     await interaction.followup.send(embed=embed, view=view)
-
 @bot.tree.command(name="rate", description="Cek rate Robux")
 async def rate_cmd(interaction: discord.Interaction):
     await interaction.response.send_message(f"1 RBX = Rp {RATE:,}")
-
 @bot.tree.command(name="setrate", description="Update rate Robux (Admin only)")
 @app_commands.describe(rate="1 RBX = berapa IDR?")
 async def setrate(interaction: discord.Interaction, rate: int):
@@ -255,7 +239,6 @@ async def setrate(interaction: discord.Interaction, rate: int):
     global RATE
     RATE = rate
     await interaction.response.send_message(f"Rate updated: 1 RBX = Rp {rate:,}")
-
 @bot.tree.command(name="uploadqris", description="Upload QRIS (Admin only)")
 @app_commands.describe(image="Upload file gambar QR code")
 async def upload_qris(interaction: discord.Interaction, image: discord.Attachment):
@@ -281,7 +264,6 @@ async def upload_qris(interaction: discord.Interaction, image: discord.Attachmen
     embed.set_footer(text=f"Uploaded by {interaction.user.name}")
     await qr_channel.send(embed=embed)
     await interaction.followup.send(f"QRIS uploaded to {qr_channel.mention}", ephemeral=True)
-
 @bot.tree.command(name="qris", description="Lihat QR code")
 async def cek_qris(interaction: discord.Interaction):
     qr_channel = discord.utils.get(interaction.guild.channels, name="qr-code")
@@ -293,7 +275,6 @@ async def cek_qris(interaction: discord.Interaction):
             await interaction.response.send_message(embed=msg.embeds[0])
             return
     await interaction.response.send_message("QR code tidak ditemukan!", ephemeral=True)
-
 @bot.event
 async def on_interaction(interaction: discord.Interaction):
     if interaction.type != discord.InteractionType.component:
@@ -388,7 +369,6 @@ async def on_interaction(interaction: discord.Interaction):
         if channel_id in active_tickets:
             del active_tickets[channel_id]
         await interaction.channel.delete()
-
 @bot.event
 async def on_message(message):
     if message.author.bot:
@@ -402,4 +382,65 @@ async def on_message(message):
             staff_role = discord.utils.get(message.guild.roles, name=STAFF_ROLE_NAME)
             if str(message.author.id) == ticket['user_id'] or staff_role in message.author.roles:
                 ticket['status'] = 'CANCELLED'
-                await me
+                await message.channel.send("Transaksi dibatalkan. Ticket closed.")
+                import asyncio
+                await asyncio.sleep(3)
+                del active_tickets[channel_id]
+                await message.channel.delete()
+                return
+    if message.channel.name and message.channel.name.startswith('ticket-'):
+        channel_id = str(message.channel.id)
+        if channel_id in active_tickets and active_tickets[channel_id]['status'] == 'OPEN':
+            ticket = active_tickets[channel_id]
+            if message.content.strip() in ['1','2','3']:
+                methods = ['QRIS', 'DANA', 'BCA']
+                method = methods[int(message.content) - 1]
+                ticket['payment_method'] = method
+                if method == 'QRIS':
+                    await message.channel.send("Gunakan /qris untuk melihat QR code")
+                elif method == 'DANA':
+                    embed = discord.Embed(
+                        title="DANA",
+                        description=f"Transfer ke:\n`{DANA_NUMBER}`",
+                        color=0x00ff00
+                    )
+                    await message.channel.send(embed=embed)
+                elif method == 'BCA':
+                    embed = discord.Embed(
+                        title="BCA",
+                        description=f"Transfer ke:\n`{BCA_NUMBER}`",
+                        color=0x00ff00
+                    )
+                    await message.channel.send(embed=embed)
+                view = discord.ui.View()
+                view.add_item(discord.ui.Button(
+                    label="PAID",
+                    style=discord.ButtonStyle.success,
+                    custom_id="confirm_payment"
+                ))
+                await message.channel.send("Sudah transfer? Klik tombol di bawah:", view=view)
+                staff_role = discord.utils.get(message.guild.roles, name=STAFF_ROLE_NAME)
+                if staff_role:
+                    await message.channel.send(f"{staff_role.mention} Ada pembayaran baru!")
+    await bot.process_commands(message)
+@bot.event
+async def on_ready():
+    print(f"BOT READY - {bot.user}")
+    print(f"Server: {len(bot.guilds)}")
+    print(f"Staff Role: {STAFF_ROLE_NAME}")
+    global LOG_CHANNEL_ID
+    LOG_CHANNEL_ID = None
+    try:
+        synced = await bot.tree.sync()
+        print(f"Commands: {len(synced)}")
+        for cmd in synced:
+            print(f"  - /{cmd.name}")
+    except Exception as e:
+        print(f"Sync error: {e}")
+if __name__ == "__main__":
+    if not TOKEN:
+        print("ERROR: DISCORD_TOKEN not found in .env")
+        exit()
+    print("Starting CELLYN STORE BOT...")
+    print("Fitur: Custom Invoice, Log Publik, History, Blacklist, Max 3 tickets")
+    bot.run(TOKEN)
