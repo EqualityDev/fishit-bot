@@ -22,29 +22,19 @@ BCA_NUMBER = "8565330655"
 RATE = 95
 active_tickets = {}
 
-# ========== CACHE LOG CHANNEL - PENTING! ==========
-# Ini nyimpen ID channel log biar ga bikin baru terus
-public_log_channel_cache = {}
+# ========== FIX: PAKSA PAKE CHANNEL ID INI! ==========
+# GANTI ID DI BAWAH INI DENGAN ID CHANNEL LOG LU!
+LOG_CHANNEL_ID = 1471765209143181414  # ← ID CHANNEL LU!
 
-# ========== ON READY - RESET CACHE ==========
+# ========== ON READY ==========
 @bot.event
 async def on_ready():
-    global public_log_channel_cache
     print(f"🔥 BOT READY! Login sebagai {bot.user}")
     print(f"✅ Bot aktif di {len(bot.guilds)} server")
     print(f"👮 Role Staff: {STAFF_ROLE_NAME}")
     print(f"💳 DANA: {DANA_NUMBER}")
     print(f"🏦 BCA: {BCA_NUMBER}")
-    
-    # RESET CACHE DAN CARI CHANNEL YANG UDAH ADA
-    public_log_channel_cache = {}
-    for guild in bot.guilds:
-        channel = discord.utils.get(guild.channels, name="✅-transaksi-sukses")
-        if channel:
-            public_log_channel_cache[guild.id] = channel.id
-            print(f"✅ Log channel ditemukan di {guild.name}: #{channel.name}")
-        else:
-            print(f"📌 Belum ada log channel di {guild.name}, akan dibuat nanti")
+    print(f"📋 Log Channel ID: {LOG_CHANNEL_ID} (DIKUNCI!)")
     
     # Sync slash commands
     try:
@@ -55,61 +45,42 @@ async def on_ready():
     except Exception as e:
         print(f"❌ Error sync: {e}")
 
-# ========== FUNGSI GET LOG CHANNEL - FIX ==========
+# ========== FUNGSI GET LOG CHANNEL - PAKSA PAKE ID! ==========
 async def get_public_log_channel(guild):
-    global public_log_channel_cache
+    # PAKSA ambil channel berdasarkan ID
+    channel = bot.get_channel(LOG_CHANNEL_ID)
     
-    # CEK 1: Apakah udah ada di cache?
-    if guild.id in public_log_channel_cache:
-        channel_id = public_log_channel_cache[guild.id]
-        channel = guild.get_channel(channel_id)
-        # Validasi channel masih ada
-        if channel and isinstance(channel, discord.TextChannel):
-            return channel
-        else:
-            # Cache expired, hapus
-            del public_log_channel_cache[guild.id]
+    # Validasi channel masih ada dan di server yang bener
+    if channel and channel.guild.id == guild.id:
+        return channel
     
-    # CEK 2: Cari channel yang udah ada di server
-    channel = discord.utils.get(guild.channels, name="✅-transaksi-sukses")
+    # KALO CHANNEL GA ADA, TETAP JANGAN BIKIN BARU!
+    print(f"❌ ERROR: Channel log dengan ID {LOG_CHANNEL_ID} tidak ditemukan di server {guild.name}!")
+    print(f"📌 Pastikan channel sudah ada dan ID nya bener!")
+    print(f"📌 Atau ganti LOG_CHANNEL_ID di kode dengan ID yang valid!")
     
-    # CEK 3: Kalo belum ada, bikin BARU SATU KALI!
-    if not channel:
-        overwrites = {
-            guild.default_role: discord.PermissionOverwrite(read_messages=True, send_messages=False),
-            guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
-        }
-        channel = await guild.create_text_channel(
-            name="✅-transaksi-sukses",
-            overwrites=overwrites,
-            topic="✅ TRANSAKSI BERHASIL - BUKTI PEMBAYARAN"
-        )
-        
-        # Pesan pembuka - CUMA SEKALI!
-        embed = discord.Embed(
-            title="📋 LOG TRANSAKSI BERHASIL",
-            description="**Channel ini menampilkan semua pembayaran yang SUKSES.**\n\n"
-                        "• Setiap transaksi yang selesai akan muncul otomatis\n"
-                        "• Semua member bisa melihat bukti transaksi\n"
-                        "• Ini bentuk transparansi store kami",
-            color=0x00ff00,
-            timestamp=datetime.now()
-        )
-        embed.set_footer(text="CELLYN STORE")
-        await channel.send(embed=embed)
+    # KALAU MAU TETAP BIKIN CHANNEL BARU, HAPUS KOMEN DI BAWAH:
+    # overwrites = {
+    #     guild.default_role: discord.PermissionOverwrite(read_messages=True, send_messages=False),
+    #     guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
+    # }
+    # channel = await guild.create_text_channel(
+    #     name="✅-transaksi-sukses",
+    #     overwrites=overwrites,
+    #     topic="✅ TRANSAKSI BERHASIL - BUKTI PEMBAYARAN"
+    # )
+    # return channel
     
-    # SIMPAN KE CACHE biar ga bikin baru lagi
-    if channel:
-        public_log_channel_cache[guild.id] = channel.id
-    
-    return channel
+    return None  # Kembalikan None kalo ga ketemu
 
-# ========== SEND LOG - UDAH AMAN ==========
+# ========== SEND LOG - PAKSA PAKE CHANNEL ID ==========
 async def send_success_log(guild, ticket_data):
-    # Panggil fungsi yang udah di-fix
+    # Panggil fungsi yang pake ID
     channel = await get_public_log_channel(guild)
+    
+    # Kalo channel ga ketemu, JANGAN BIKIN BARU!
     if not channel:
-        print(f"❌ Gagal mendapatkan log channel untuk {guild.name}")
+        print(f"❌ Gagal kirim log: Channel {LOG_CHANNEL_ID} tidak ditemukan!")
         return
     
     user = guild.get_member(int(ticket_data['user_id']))
@@ -127,7 +98,11 @@ async def send_success_log(guild, ticket_data):
     embed.add_field(name="💳 Metode", value=ticket_data.get('payment_method', '-'), inline=True)
     embed.set_footer(text="CELLYN STORE")
     
-    await channel.send(embed=embed)
+    try:
+        await channel.send(embed=embed)
+        print(f"✅ Log terkirim ke channel #{channel.name} ({channel.id})")
+    except Exception as e:
+        print(f"❌ Gagal kirim log: {e}")
 
 # ========== DATA PRODUK (POTONG BIAR RINGAN) ==========
 PRODUCTS = [
@@ -151,7 +126,9 @@ PRODUCTS = [
     {"id": 18, "name": "🍀 SERVER LUCK X8", "category": "BOOST", "price": 73000},
     {"id": 19, "name": "NITRO BOOST 1 MONTH", "category": "NITRO", "price": 50000},
     {"id": 20, "name": "RF VIP 7DAY", "category": "RED FINGER", "price": 10000},
-    # ... produk lainnya (bisa ditambah sendiri)
+    {"id": 21, "name": "RF KVIP 7DAY", "category": "RED FINGER", "price": 10000},
+    {"id": 22, "name": "RF SVIP 7DAY", "category": "RED FINGER", "price": 18000},
+    {"id": 23, "name": "RF XVIP 7DAY", "category": "RED FINGER", "price": 25000},
 ]
 
 # ========== SLASH COMMANDS ==========
@@ -329,12 +306,12 @@ async def on_interaction(interaction: discord.Interaction):
         ticket = active_tickets[channel_id]
         ticket['status'] = 'CONFIRMED'
         
-        # Kirim log ke channel publik
+        # Kirim log ke channel publik - PAKSA PAKE ID!
         await send_success_log(interaction.guild, ticket)
         
         embed = discord.Embed(
             title="✅ PEMBAYARAN DIKONFIRMASI!",
-            description=f"**Item:** {ticket['item_name']}\nTerima kasih sudah belanja!\n\n📋 Transaksi telah dicatat di channel ✅-transaksi-sukses",
+            description=f"**Item:** {ticket['item_name']}\nTerima kasih sudah belanja!\n\n📋 Transaksi telah dicatat di channel <#{LOG_CHANNEL_ID}>",
             color=0x00ff00
         )
         await interaction.channel.send(embed=embed)
@@ -420,5 +397,6 @@ if __name__ == "__main__":
         exit()
     print("🔥 Memulai bot CELLYN STORE...")
     print(f"👮 Role Staff: {STAFF_ROLE_NAME}")
-    print("✅ Fitur: Log channel otomatis, Anti-dobel channel!")
+    print(f"📋 Log Channel ID: {LOG_CHANNEL_ID} (DIKUNCI!)")
+    print("✅ Bot akan PAKSA pake channel ID ini untuk log!")
     bot.run(TOKEN)
