@@ -119,6 +119,28 @@ async def send_invoice(guild, transaction_data):
     transaction_data['invoice'] = invoice_num
     transaction_data['timestamp'] = datetime.now()
     transactions.append(transaction_data)
+
+    try:
+        buyer_role = discord.utils.get(guild.roles, name="👑 Royal Customer")
+        
+        if buyer_role and user:
+            if buyer_role not in user.roles:
+                await user.add_roles(buyer_role)
+                print(f"✅ Role {buyer_role.name} diberikan ke {user.name}")
+                
+                embed = discord.Embed(
+                    title="👑 ROYAL CUSTOMER",
+                    description=f"Selamat {user.mention}! Kamu sekarang menjadi **👑 Royal Customer**!",
+                    color=0xffd700
+                )
+                await channel.send(embed=embed)
+            else:
+                print(f"ℹ️ {user.name} sudah punya role Royal Customer")
+        elif not buyer_role:
+            print("⚠️ Role '👑 Royal Customer' tidak ditemukan di server")
+    except Exception as e:
+        print(f"❌ Error gift role: {e}")
+
     items_list = ""
     for item in transaction_data['items']:
         items_list += f"{item['qty']}x {item['name']} = Rp {item['price'] * item['qty']:,}\n"
