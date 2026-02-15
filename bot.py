@@ -29,7 +29,7 @@ user_transaction_count = {}
 LOG_CHANNEL_ID = None
 
 PRODUCTS = [
-    {"id": 1, "name": "CUPID'S HARP", "category": "LIMITED SKIN", "price": 80000},
+    {"id": 1, "name": "CUPID'S HARP", "category": "LIMITED SKIN", "price": 85000},
     {"id": 2, "name": "AURELIAN BOW", "category": "LIMITED SKIN", "price": 85000},
     {"id": 3, "name": "VIP + LUCK", "category": "GAMEPASS", "price": 40000},
     {"id": 4, "name": "MUTATION", "category": "GAMEPASS", "price": 25000},
@@ -37,7 +37,7 @@ PRODUCTS = [
     {"id": 6, "name": "EXTRA LUCK", "category": "GAMEPASS", "price": 21000},
     {"id": 7, "name": "DOUBLE XP", "category": "GAMEPASS", "price": 18000},
     {"id": 8, "name": "SELL ANYWHERE", "category": "GAMEPASS", "price": 28000},
-    {"id": 9, "name": "SMALL LUCK", "category": "GAMEPASS", "price": 5000},
+    {"id": 9, "name": "SMALL LUCK", "category": "GAMEPASS", "price": 8000},
     {"id": 10, "name": "HYPERBOATPACK", "category": "GAMEPASS", "price": 85000},
     {"id": 13, "name": "PIRATE CRATE 1X", "category": "CRATE", "price": 10000},
     {"id": 14, "name": "PIRATE CRATE 5X", "category": "CRATE", "price": 48000},
