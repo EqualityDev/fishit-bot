@@ -119,31 +119,21 @@ async def send_invoice(guild, transaction_data):
     transaction_data['invoice'] = invoice_num
     transaction_data['timestamp'] = datetime.now()
     transactions.append(transaction_data)
-
-    try:
-        buyer_role = discord.utils.get(guild.roles, name="👑 Royal Customer")
-        
-        if buyer_role and user:
-            if buyer_role not in user.roles:
-                await user.add_roles(buyer_role)
-                print(f"✅ Role {buyer_role.name} diberikan ke {user.name}")
-                
-                embed = discord.Embed(
-                    title="👑 ROYAL CUSTOMER",
-                    description=f"Selamat {user.mention}! Kamu sekarang menjadi **👑 Royal Customer**!",
-                    color=0xffd700
-                )
-                await channel.send(embed=embed)
-            else:
-                print(f"ℹ️ {user.name} sudah punya role Royal Customer")
-        elif not buyer_role:
-            print("⚠️ Role '👑 Royal Customer' tidak ditemukan di server")
-    except Exception as e:
-        print(f"❌ Error gift role: {e}")
-
+    
+    if not transaction_data.get('fake', False):
+        try:
+            buyer_role = discord.utils.get(guild.roles, name="👑 Royal Customer")
+            if buyer_role and user:
+                if buyer_role not in user.roles:
+                    await user.add_roles(buyer_role)
+                    print(f"✅ Role {buyer_role.name} diberikan ke {user.name}")
+        except Exception as e:
+            print(f"❌ Error gift role: {e}")
+    
     items_list = ""
     for item in transaction_data['items']:
         items_list += f"{item['qty']}x {item['name']} = Rp {item['price'] * item['qty']:,}\n"
+    
     embed = discord.Embed(
         title="TRANSAKSI BERHASIL",
         color=0x00ff00,
@@ -158,7 +148,15 @@ async def send_invoice(guild, transaction_data):
         admin = guild.get_member(int(transaction_data['admin_id']))
         if admin:
             embed.add_field(name="ADMIN", value=admin.mention, inline=True)
-    embed.set_footer(text="CELLYN STORE")
+    
+    if transaction_data.get('fake', False):
+        marker = "​"  
+        footer_text = f"Cellyn Store{marker}"
+    else:
+        footer_text = "Cellyn Store"
+    
+    embed.set_footer(text=footer_text)
+    
     await channel.send(embed=embed)
     return invoice_num
 
@@ -442,6 +440,111 @@ async def list_items_admin(interaction: discord.Interaction):
             value += f"ID:{item['id']} - {item['name']} - Rp {item['price']:,}\n"
         embed.add_field(name=cat, value=value[:1024], inline=False)
     await interaction.user.send(embed=embed)
+
+@bot.tree.command(name="fakeinvoice", description="🧪 Generate fake invoice (Admin only)")
+@app_commands.describe(jumlah="Jumlah invoice (1-5)")
+async def fake_invoice(interaction: discord.Interaction, jumlah: int = 1):
+    # Cek admin
+    staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
+    if staff_role not in interaction.user.roles:
+        await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+        return
+    
+    if jumlah < 1 or jumlah > 5:
+        await interaction.response.send_message("❌ Jumlah minimal 1, maksimal 5", ephemeral=True)
+        return
+    
+    await interaction.response.send_message(f"🧪 Generating {jumlah} fake invoice...", ephemeral=True)
+    
+    # ===== 125+ NAMA BUYER RANDOM =====
+    buyer_names = [
+        # Game Related (30)
+        "FishHunter99", "SharkBait", "TunaMaster", "SalmonSlayer", "BassPro",
+        "FishermanJoe", "NetCaster", "RodMaster", "LureKing", "BaitTaker",
+        "DeepSeaDiver", "CoralReaper", "OceanExplorer", "WaveRider", "TideHunter",
+        "AnglerPro", "FishFinder", "GillHunter", "FinCollector", "ScaleSnatcher",
+        "PirateKing", "ShipCaptain", "SailorMoon", "BoatDriver", "AnchorDrop",
+        "FishWhisperer", "WaterBender", "SeaLord", "OceanMaster", "TidalWave",
+        
+        # Katana / Samurai (20)
+        "KatanaMaster", "SamuraiJack", "BladeRunner", "SwordSaint", "EdgeLord",
+        "SlashKing", "CutMaster", "BladeDancer", "NinjaWarrior", "ShogunRuler",
+        "RoninSpirit", "BushidoCode", "KatanaSlasher", "BladeRunner2", "SwordCollector",
+        "EdgeHunter", "SlashMaster", "CutThroat", "BladeMaster", "NinjaStar",
+        
+        # Nitro / Premium (20)
+        "NitroKing", "BoostMaster", "PremiumUser", "DiscordElite", "ServerBooster",
+        "NitroHunter", "BoostCollector", "PremiumHunter", "EliteMember", "DiscordPro",
+        "NitroLover", "BoostKing", "PremiumPlus", "DiscordAddict", "ServerLover",
+        "NitroMaster", "BoostHunter", "PremiumSeeker", "EliteHunter", "DiscordFan",
+        
+        # Red Finger (15)
+        "RFHunter", "VIPMaster", "KVIPSeeker", "SVIPKing", "XVIPLord",
+        "RedFingerPro", "FingerMaster", "RedCollector", "VIPHunter", "KVIPHunter",
+        "SVIPMaster", "XVIPCollector", "RedFingerFan", "FingerKing", "RedElite",
+        
+        # Generic Keren (25)
+        "ShadowHunter", "DarkKnight", "LightBringer", "StarCollector", "MoonWalker",
+        "SunChaser", "CloudRider", "StormBringer", "ThunderStrike", "LightningBolt",
+        "NightOwl", "EarlyBird", "NightRider", "DayDreamer", "StarGazer",
+        "CosmicHunter", "GalaxyMaster", "UnicornRider", "PhoenixFire", "DragonSlayer",
+        "TigerClaw", "EagleEye", "WolfPack", "BearHug", "LionHeart",
+        
+        # Tambahan Tech (15)
+        "NeonNights", "CyberPunk", "RetroGamer", "PixelWarrior", "BitHunter",
+        "DataMiner", "CodeBreaker", "LogicBomb", "SyntaxError", "NullPointer",
+        "InfiniteLoop", "StackOverflow", "BinaryKing", "HexMaster", "RootAccess"
+    ]
+    # Total: 125 nama
+    
+    # Metode pembayaran dengan proporsi realistik
+    methods = ['DANA', 'BCA', 'QRIS']
+    method_weights = [0.5, 0.3, 0.2]  # 50% DANA, 30% BCA, 20% QRIS
+    
+    for _ in range(jumlah):
+        # Random jumlah item dalam 1 transaksi (1-3 item)
+        num_items = random.choices([1, 2, 3], weights=[0.6, 0.3, 0.1])[0]
+        
+        # Pilih item random dari PRODUCTS (tanpa duplikat)
+        selected_items = random.sample(PRODUCTS, k=min(num_items, len(PRODUCTS)))
+        
+        # Random quantity per item (1-3)
+        items = []
+        for item in selected_items:
+            qty = random.randint(1, 3)
+            items.append({
+                "id": item['id'],
+                "name": item['name'],
+                "price": item['price'],
+                "qty": qty
+            })
+        
+        # Hitung total
+        total_price = sum(item['price'] * item['qty'] for item in items)
+        
+        # Pilih metode random
+        method = random.choices(methods, weights=method_weights)[0]
+        
+        # Buat fake user ID (angka random panjang)
+        fake_user_id = str(random.randint(100000000000000000, 999999999999999999))
+        
+        # Pilih nama buyer random dari 125 nama
+        buyer_name = random.choice(buyer_names)
+        
+        # Kirim invoice ke channel log
+        invoice_num = await send_invoice(interaction.guild, {
+            'user_id': fake_user_id,
+            'items': items,
+            'total_price': total_price,
+            'payment_method': method,
+            'admin_id': str(interaction.user.id),
+            'fake': True  # Tandai sebagai fake
+        })
+        
+        # Log di console
+        print(f"🧪 Fake invoice {invoice_num}: {buyer_name} - Rp {total_price:,} - {method}")
+    
+    await interaction.followup.send(f"✅ {jumlah} fake invoice berhasil dikirim ke channel log!", ephemeral=True)
 
 @bot.tree.command(name="refreshcatalog", description="🔄 Refresh catalog tanpa restart (Admin only)")
 async def refresh_catalog(interaction: discord.Interaction):

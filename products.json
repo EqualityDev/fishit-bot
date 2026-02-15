@@ -196,5 +196,11 @@
     "name": "RF XVIP 30DAY",
     "category": "RED FINGER",
     "price": 318000
+  },
+  {
+    "id": 34,
+    "name": "ikan",
+    "category": "category:",
+    "price": 10000
   }
 ]
