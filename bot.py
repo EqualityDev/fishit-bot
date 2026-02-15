@@ -135,25 +135,27 @@ async def send_invoice(guild, transaction_data):
         items_list += f"{item['qty']}x {item['name']} = Rp {item['price'] * item['qty']:,}\n"
     
     embed = discord.Embed(
-        title="TRANSAKSI BERHASIL",
+        title="🔔 TRANSAKSI BERHASIL 🔔",
         color=0x00ff00,
         timestamp=datetime.now()
     )
-    embed.add_field(name="NO. INVOICE", value=f"`{invoice_num}`", inline=False)
-    embed.add_field(name="CUSTOMER", value=f"{user_name}\n<@{transaction_data['user_id']}>", inline=True)
-    embed.add_field(name="ITEMS", value=items_list, inline=False)
-    embed.add_field(name="TOTAL", value=f"Rp {transaction_data['total_price']:,}", inline=True)
-    embed.add_field(name="METODE", value=transaction_data.get('payment_method', '-'), inline=True)
+    
+    embed.add_field(name="📋 NO. INVOICE", value=f"`{invoice_num}`", inline=False)
+    embed.add_field(name="👑 CUSTOMER", value=f"{user_name}\n<@{transaction_data['user_id']}>", inline=True)
+    embed.add_field(name="📦 ITEMS", value=items_list, inline=False)
+    embed.add_field(name="💰 TOTAL", value=f"Rp {transaction_data['total_price']:,}", inline=True)
+    embed.add_field(name="💳 METODE", value=transaction_data.get('payment_method', '-'), inline=True)
+    
     if transaction_data.get('admin_id'):
         admin = guild.get_member(int(transaction_data['admin_id']))
         if admin:
-            embed.add_field(name="ADMIN", value=admin.mention, inline=True)
+            embed.add_field(name="🛡️ ADMIN", value=admin.mention, inline=True)
     
     if transaction_data.get('fake', False):
         marker = "​"  
-        footer_text = f"Cellyn Store{marker}"
+        footer_text = f"✨ Terima kasih telah bertransaksi ✨\nCELLYN STORE{marker}"
     else:
-        footer_text = "Cellyn Store"
+        footer_text = "✨ Terima kasih telah bertransaksi ✨\nCELLYN STORE"
     
     embed.set_footer(text=footer_text)
     
