@@ -81,7 +81,7 @@ async def get_log_channel(guild):
         channel = guild.get_channel(LOG_CHANNEL_ID)
         if channel:
             return channel
-    channel = discord.utils.get(guild.channels, name="log-transaksi")
+    channel = discord.utils.get(guild.channels, name="🧾┃log-transaksisi")
     if not channel:
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(read_messages=True, send_messages=False),
