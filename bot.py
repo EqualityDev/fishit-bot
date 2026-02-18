@@ -708,7 +708,9 @@ async def on_interaction(interaction: discord.Interaction):
         embed.add_field(name="📋 LIHAT ITEM", value="Gunakan `/items`", inline=False)
         embed.add_field(name="💳 PAYMENT", value="1. QRIS\n2. DANA\n3. BCA", inline=False)
         embed.add_field(name="❌ CANCEL", value="Ketik !cancel", inline=False)
-        await channel.send(f"Halo {user.mention}!", embed=embed)
+        embed.set_image(url="https://i.postimg.cc/fJ5KvsQr/colorful-welcome-sign-graffiti-style-lettering-paint-splatter-background-vibrant-featuring-graffitis.jpg")
+
+        await channel.send(f"Hallo {user.mention}!", embed=embed)
         await interaction.response.send_message(f"Ticket created: {channel.mention}", ephemeral=True)
     elif custom_id == "confirm_payment":
         channel_id = str(interaction.channel.id)

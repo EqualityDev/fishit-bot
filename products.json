@@ -57,19 +57,19 @@
     "id": 10,
     "name": "HYPERBOATPACK",
     "category": "GAMEPASS",
-    "price": 85000
+    "price": 95000
   },
   {
     "id": 13,
-    "name": "PIRATE CRATE 1X",
+    "name": "VALENTINE CRATE 1X",
     "category": "CRATE",
-    "price": 10000
+    "price": 28000
   },
   {
     "id": 14,
-    "name": "PIRATE CRATE 5X",
+    "name": "VALENTINE CRATE 5X",
     "category": "CRATE",
-    "price": 48000
+    "price": 140000
   },
   {
     "id": 15,
@@ -129,13 +129,13 @@
     "id": 24,
     "name": "NITRO BOOST 1 MONTH",
     "category": "NITRO",
-    "price": 50000
+    "price": 45000
   },
   {
     "id": 25,
     "name": "NITRO BOOST 3 MONTH",
     "category": "NITRO",
-    "price": 70000
+    "price": 50000
   },
   {
     "id": 26,
