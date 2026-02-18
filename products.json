@@ -184,5 +184,17 @@
     "name": "RF XVIP 30DAY",
     "category": "RED FINGER",
     "price": 318000
+  },
+  {
+    "id": 34,
+    "name": "MIDMAN",
+    "category": "LAINNYA",
+    "price": 500
+  },
+  {
+    "id": 35,
+    "name": "SC TUMBAL/DLL",
+    "category": "LAINNYA",
+    "price": 100
   }
 ]

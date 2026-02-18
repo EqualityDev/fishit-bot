@@ -28,39 +28,8 @@ blacklist = set()
 user_transaction_count = {}
 LOG_CHANNEL_ID = None
 
-PRODUCTS = [
-    {"id": 1, "name": "CUPID'S HARP", "category": "LIMITED SKIN", "price": 85000},
-    {"id": 2, "name": "AURELIAN BOW", "category": "LIMITED SKIN", "price": 85000},
-    {"id": 3, "name": "VIP + LUCK", "category": "GAMEPASS", "price": 40000},
-    {"id": 4, "name": "MUTATION", "category": "GAMEPASS", "price": 25000},
-    {"id": 5, "name": "ADVANCED LUCK", "category": "GAMEPASS", "price": 45000},
-    {"id": 6, "name": "EXTRA LUCK", "category": "GAMEPASS", "price": 21000},
-    {"id": 7, "name": "DOUBLE XP", "category": "GAMEPASS", "price": 18000},
-    {"id": 8, "name": "SELL ANYWHERE", "category": "GAMEPASS", "price": 28000},
-    {"id": 9, "name": "SMALL LUCK", "category": "GAMEPASS", "price": 8000},
-    {"id": 10, "name": "HYPERBOATPACK", "category": "GAMEPASS", "price": 85000},
-    {"id": 13, "name": "PIRATE CRATE 1X", "category": "CRATE", "price": 10000},
-    {"id": 14, "name": "PIRATE CRATE 5X", "category": "CRATE", "price": 48000},
-    {"id": 15, "name": "ELDERWOOD CRATE 1X", "category": "CRATE", "price": 9000},
-    {"id": 16, "name": "ELDERWOOD CRATE 5X", "category": "CRATE", "price": 42000},
-    {"id": 17, "name": "SERVER LUCK X2", "category": "BOOST", "price": 10000},
-    {"id": 18, "name": "SERVER LUCK X4", "category": "BOOST", "price": 38000},
-    {"id": 19, "name": "SERVER LUCK X8", "category": "BOOST", "price": 73000},
-    {"id": 20, "name": "X8 3 JAM", "category": "BOOST", "price": 73000},
-    {"id": 21, "name": "X8 6 JAM", "category": "BOOST", "price": 115000},
-    {"id": 22, "name": "X8 12 JAM", "category": "BOOST", "price": 215000},
-    {"id": 23, "name": "X8 24 JAM", "category": "BOOST", "price": 410000},
-    {"id": 24, "name": "NITRO BOOST 1 MONTH", "category": "NITRO", "price": 50000},
-    {"id": 25, "name": "NITRO BOOST 3 MONTH", "category": "NITRO", "price": 70000},
-    {"id": 26, "name": "RF VIP 7DAY", "category": "RED FINGER", "price": 21500},
-    {"id": 27, "name": "RF KVIP 7DAY", "category": "RED FINGER", "price": 37500},
-    {"id": 28, "name": "RF SVIP 7DAY", "category": "RED FINGER", "price": 42000},
-    {"id": 29, "name": "RF XVIP 7DAY", "category": "RED FINGER", "price": 102000},
-    {"id": 30, "name": "RF VIP 30DAY", "category": "RED FINGER", "price": 62000},
-    {"id": 31, "name": "RF KVIP 30DAY", "category": "RED FINGER", "price": 95500},
-    {"id": 32, "name": "RF SVIP 30DAY", "category": "RED FINGER", "price": 102000},
-    {"id": 33, "name": "RF XVIP 30DAY", "category": "RED FINGER", "price": 318000},
-]
+PRODUCTS = []
+
 def save_products():
     with open('products.json', 'w') as f:
         json.dump(PRODUCTS, f, indent=2)
@@ -252,18 +221,18 @@ async def unblacklist(interaction: discord.Interaction, user: discord.User):
 
 @bot.tree.command(name="catalog", description="Lihat semua item")
 async def catalog(interaction: discord.Interaction):
-    await interaction.response.defer()
     categories = {}
     for p in PRODUCTS:
         if p['category'] not in categories:
             categories[p['category']] = []
         categories[p['category']].append(p)
+
     embed = discord.Embed(
         title="CELLYN STORE - READY STOCK",
         description=f"Rate: 1 RBX = Rp {RATE:,}\nPayment: QRIS / DANA / BCA",
         color=0x00ff00
     )
-    category_order = ["LIMITED SKIN", "GAMEPASS", "CRATE", "BOOST", "NITRO", "RED FINGER"]
+    category_order = ["LIMITED SKIN", "GAMEPASS", "CRATE", "BOOST", "NITRO", "RED FINGER", "MIDMAN", "LAINNYA"]
     for cat in category_order:
         if cat in categories:
             items = categories[cat][:5]
@@ -279,7 +248,7 @@ async def catalog(interaction: discord.Interaction):
                 style=discord.ButtonStyle.primary, 
                 custom_id=f"buy_{cat}"
             ))
-    await interaction.followup.send(embed=embed, view=view)
+    await interaction.response.send_message(embed=embed, view=view)
 
 @bot.tree.command(name="rate", description="Cek rate Robux")
 async def rate_cmd(interaction: discord.Interaction):
