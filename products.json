@@ -3,13 +3,13 @@
     "id": 1,
     "name": "CUPID'S HARP",
     "category": "LIMITED SKIN",
-    "price": 85000
+    "price": 95000
   },
   {
     "id": 2,
     "name": "AURELIAN BOW",
     "category": "LIMITED SKIN",
-    "price": 85000
+    "price": 95000
   },
   {
     "id": 3,
@@ -189,12 +189,12 @@
     "id": 34,
     "name": "MIDMAN",
     "category": "LAINNYA",
-    "price": 500
+    "price": 0
   },
   {
     "id": 35,
     "name": "SC TUMBAL/DLL",
     "category": "LAINNYA",
-    "price": 100
+    "price": 0
   }
 ]

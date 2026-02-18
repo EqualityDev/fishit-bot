@@ -46,12 +46,30 @@ def load_products():
 
 async def get_log_channel(guild):
     global LOG_CHANNEL_ID
+    
+    # 🔴 BACA ID DARI ENV (kalo ada)
+    if LOG_CHANNEL_ID is None:
+        LOG_CHANNEL_ID = os.getenv('LOG_CHANNEL_ID')
+        if LOG_CHANNEL_ID:
+            try:
+                LOG_CHANNEL_ID = int(LOG_CHANNEL_ID)
+            except:
+                LOG_CHANNEL_ID = None
+    
+    # 🔴 PAKSA PAKE ID
     if LOG_CHANNEL_ID:
         channel = guild.get_channel(LOG_CHANNEL_ID)
-        if channel:
+        if channel and isinstance(channel, discord.TextChannel):
             return channel
-    channel = discord.utils.get(guild.channels, name="🧾┃log-transaksisi")
+        else:
+            print(f"⚠️ Channel {LOG_CHANNEL_ID} tidak ditemukan, cari channel dengan nama 'log-transaksi'...")
+            LOG_CHANNEL_ID = None
+    
+    # Fallback: cari channel dengan nama
+    channel = discord.utils.get(guild.channels, name="log-transaksi")
+    
     if not channel:
+        # BUAT CHANNEL BARU (kalo bener2 ga ada)
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(read_messages=True, send_messages=False),
             guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
@@ -59,18 +77,48 @@ async def get_log_channel(guild):
         channel = await guild.create_text_channel(
             name="log-transaksi",
             overwrites=overwrites,
-            topic="LOG TRANSAKSI BERHASIL - CELLYN STORE"
+            topic="📋 LOG TRANSAKSI CELLYN STORE"
         )
+        
         embed = discord.Embed(
-            title="LOG TRANSAKSI CELLYN STORE",
+            title="📋 LOG TRANSAKSI CELLYN STORE",
             description="Channel ini mencatat semua transaksi yang BERHASIL.",
             color=0x00ff00,
             timestamp=datetime.now()
         )
         embed.set_footer(text="CELLYN STORE")
         await channel.send(embed=embed)
-    LOG_CHANNEL_ID = channel.id
+        
+        # Simpan ID channel baru
+        LOG_CHANNEL_ID = channel.id
+        
+        # Update file .env (opsional, biar permanen)
+        update_env_file(f"LOG_CHANNEL_ID={channel.id}")
+    
     return channel
+
+def update_env_file(key_value):
+    """Update file .env dengan key baru"""
+    try:
+        with open('.env', 'r') as f:
+            lines = f.readlines()
+        
+        key = key_value.split('=')[0]
+        found = False
+        for i, line in enumerate(lines):
+            if line.startswith(key + '='):
+                lines[i] = key_value + '\n'
+                found = True
+                break
+        
+        if not found:
+            lines.append('\n' + key_value + '\n')
+        
+        with open('.env', 'w') as f:
+            f.writelines(lines)
+        print(f"✅ .env updated with {key_value}")
+    except Exception as e:
+        print(f"❌ Error updating .env: {e}")
 
 def generate_invoice_number():
     global invoice_counter
@@ -816,8 +864,7 @@ async def on_ready():
     try:
         synced = await bot.tree.sync()
         print(f"Commands: {len(synced)}")
-        for cmd in synced:
-            print(f"  - /{cmd.name}")
+
     except Exception as e:
         print(f"Sync error: {e}")
 
@@ -826,5 +873,5 @@ if __name__ == "__main__":
         print("ERROR: DISCORD_TOKEN not found in .env")
         exit()
     print("Starting CELLYN STORE BOT...")
-    print("Fitur: Multi-item, Additem, Removeitem, Items, Custom Invoice, Product Management")
+    print("Author by Equality")
     bot.run(TOKEN)
