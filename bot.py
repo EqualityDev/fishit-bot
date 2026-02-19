@@ -30,6 +30,27 @@ LOG_CHANNEL_ID = None
 
 PRODUCTS = []
 
+def get_item_by_id(item_id):
+    return next((p for p in PRODUCTS if p['id'] == item_id), None)
+
+def calculate_total_from_ticket(ticket):
+    total = 0
+    for entry in ticket['items']:
+        item = get_item_by_id(entry['id'])
+        if item:
+            total += item['price'] * entry['qty']
+    return total
+
+def format_items_from_ticket(ticket):
+    if not ticket['items']:
+        return "Tidak ada item"
+    result = ""
+    for entry in ticket['items']:
+        item = get_item_by_id(entry['id'])
+        if item:
+            result += f"{entry['qty']}x {item['name']} = Rp {item['price'] * entry['qty']:,}\n"
+    return result
+
 def save_products():
     with open('products.json', 'w') as f:
         json.dump(PRODUCTS, f, indent=2)
@@ -168,9 +189,9 @@ async def send_invoice(guild, transaction_data):
     
     if transaction_data.get('fake', False):
         marker = "​"  
-        footer_text = f"✨ Terima kasih telah bertransaksi ✨\nCELLYN STORE{marker}"
+        footer_text = f"✨ Terima kasih telah bertransaksi di toko kami ✨\nCELLYN STORE{marker}"
     else:
-        footer_text = "✨ Terima kasih telah bertransaksi ✨\nCELLYN STORE"
+        footer_text = "✨ Terima kasih telah bertransaksi di toko kami ✨\nCELLYN STORE"
     
     embed.set_footer(text=footer_text)
     
@@ -280,6 +301,8 @@ async def catalog(interaction: discord.Interaction):
         description=f"Rate: 1 RBX = Rp {RATE:,}\nPayment: QRIS / DANA / BCA",
         color=0x00ff00
     )
+    embed.set_thumbnail(url="https://i.imgur.com/55K63yR.png")
+    
     category_order = ["LIMITED SKIN", "GAMEPASS", "CRATE", "BOOST", "NITRO", "RED FINGER", "MIDMAN", "LAINNYA"]
     for cat in category_order:
         if cat in categories:
@@ -300,10 +323,10 @@ async def catalog(interaction: discord.Interaction):
 
 @bot.tree.command(name="rate", description="Cek rate Robux")
 async def rate_cmd(interaction: discord.Interaction):
-    await interaction.response.send_message(f"1 RBX = Rp {RATE:,}")
+    await interaction.response.send_message(f"1000 RBX = Rp {RATE:,}")
 
 @bot.tree.command(name="setrate", description="Update rate Robux (Admin only)")
-@app_commands.describe(rate="1 RBX = berapa IDR?")
+@app_commands.describe(rate="1000 RBX = berapa IDR?")
 async def setrate(interaction: discord.Interaction, rate: int):
     staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
     if staff_role not in interaction.user.roles:
@@ -311,7 +334,7 @@ async def setrate(interaction: discord.Interaction, rate: int):
         return
     global RATE
     RATE = rate
-    await interaction.response.send_message(f"Rate updated: 1 RBX = Rp {rate:,}")
+    await interaction.response.send_message(f"Rate updated: 1000 RBX = Rp {rate:,}")
 
 @bot.tree.command(name="uploadqris", description="Upload QRIS (Admin only)")
 @app_commands.describe(image="Upload file gambar QR code")
@@ -749,17 +772,121 @@ async def on_interaction(interaction: discord.Interaction):
             'created_at': datetime.now()
         }
         active_tickets[str(channel.id)] = ticket
-        embed = discord.Embed(title="🧾 TICKET PEMBELIAN", color=0xffa500)
-        embed.description = f"**Item:**\n1x {item['name']}\n**Harga:** Rp {item['price']:,}"
-        embed.add_field(name="➕ NAMBAH ITEM", value="Gunakan `/additem [id] [jumlah]`", inline=False)
-        embed.add_field(name="➖ HAPUS ITEM", value="Gunakan `/removeitem [id] [jumlah]`", inline=False)
-        embed.add_field(name="📋 LIHAT ITEM", value="Gunakan `/items`", inline=False)
-        embed.add_field(name="💳 PAYMENT", value="1. QRIS\n2. DANA\n3. BCA", inline=False)
-        embed.add_field(name="❌ CANCEL", value="Ketik !cancel", inline=False)
-        embed.set_image(url="https://i.postimg.cc/fJ5KvsQr/colorful-welcome-sign-graffiti-style-lettering-paint-splatter-background-vibrant-featuring-graffitis.jpg")
-
+        embed = discord.Embed(
+            title="🧾 *SELAMAT DATANG DI STORE KAMI**",
+            description=f"━━━━━━━━━━━━━━━━━━━━━\n"
+                        f"**📦 ITEM YANG DIPILIH**\n"
+                        f"```\n{item['name']}\n```\n"
+                        f"**💰 HARGA**\n"
+                        f"```\nRp {item['price']:,}\n```\n"
+                        f"━━━━━━━━━━━━━━━━━━━━━",
+            color=0x2B2D31
+        )
+        
+        # THUMBNAIL (logo kecil di pojok kanan atas)
+        embed.set_thumbnail(url="https://i.imgur.com/55K63yR.png")  # GANTI DENGAN LOGO LO!
+        
+        # FIELD PEMBAYARAN
+        embed.add_field(
+            name="💳 **METODE PEMBAYARAN**",
+            value="```\n1. QRIS\n2. DANA\n3. BCA\n```",
+            inline=True
+        )
+        
+        # FIELD STATUS
+        embed.add_field(
+            name="⚡ **STATUS**",
+            value="```\n🟢 AKTIF\n```",
+            inline=True
+        )
+        
+        # FIELD INSTRUKSI RINGKAS
+        embed.add_field(
+            name="🔔 **LAYANAN PREMIUM**",
+            value="```\n⚡ Eksekusi Instan\n💬 Live Support 24/7\n🔒 Data Terjamin Aman\n✨ Member Exclusive\n```",
+            inline=False
+        )
+        
+        # FOOTER DENGAN ICON
+        embed.set_footer(
+            text="CELLYN STORE • PREMIUM DIGITAL",
+            icon_url="https://i.imgur.com/55K63yR.png"
+        )
+        embed.set_image(url="https://i.imgur.com/5JKf3tg.jpeg")
         await channel.send(f"Hallo {user.mention}!", embed=embed)
+        await send_item_buttons(channel, ticket)
         await interaction.response.send_message(f"Ticket created: {channel.mention}", ephemeral=True)
+        
+    # ===== HANDLER TOMBOL TAMBAH =====
+    if custom_id.startswith('ticket_add_'):
+        try:
+            item_id = int(custom_id.split('_')[2])
+            channel_id = str(interaction.channel.id)
+        
+            if channel_id not in active_tickets:
+                await interaction.response.send_message("❌ Tiket tidak ditemukan!", ephemeral=True)
+                return
+        
+            ticket = active_tickets[channel_id]
+        
+            staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
+            is_owner = str(interaction.user.id) == ticket['user_id']
+            is_admin = staff_role in interaction.user.roles
+        
+            if not (is_owner or is_admin):
+                await interaction.response.send_message("❌ Hanya pemilik tiket atau admin!", ephemeral=True)
+                return
+        
+            for entry in ticket['items']:
+                if entry['id'] == item_id:
+                    entry['qty'] += 1
+                    break
+            else:
+                ticket['items'].append({"id": item_id, "qty": 1})
+        
+            ticket['total_price'] = calculate_total_from_ticket(ticket)
+        
+            await interaction.channel.purge(limit=10, check=lambda m: m.author == bot.user and m.components)
+            await send_item_buttons(interaction.channel, ticket)
+        
+        except Exception as e:
+            print(f"❌ Error ticket_add: {e}")
+        return
+        
+        # ===== HANDLER TOMBOL KURANG =====
+    if custom_id.startswith('ticket_remove_'):
+        try:
+            item_id = int(custom_id.split('_')[2])
+            channel_id = str(interaction.channel.id)
+        
+            if channel_id not in active_tickets:
+                await interaction.response.send_message("❌ Tiket tidak ditemukan!", ephemeral=True)
+                return
+        
+            ticket = active_tickets[channel_id]
+        
+            staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
+            is_owner = str(interaction.user.id) == ticket['user_id']
+            is_admin = staff_role in interaction.user.roles
+        
+            if not (is_owner or is_admin):
+                await interaction.response.send_message("❌ Hanya pemilik tiket atau admin!", ephemeral=True)
+                return
+        
+            for i, entry in enumerate(ticket['items']):
+                if entry['id'] == item_id:
+                    if entry['qty'] > 1:
+                            entry['qty'] -= 1
+                    break
+            ticket['total_price'] = calculate_total_from_ticket(ticket)
+        
+            await interaction.channel.purge(limit=10, check=lambda m: m.author == bot.user and m.components)
+            await send_item_buttons(interaction.channel, ticket)
+        
+        except Exception as e:
+            print(f"❌ Error ticket_remove: {e}")
+        return
+
     elif custom_id == "confirm_payment":
         channel_id = str(interaction.channel.id)
         if channel_id not in active_tickets:
@@ -867,6 +994,42 @@ async def on_ready():
 
     except Exception as e:
         print(f"Sync error: {e}")
+
+# ===== FUNGSI KIRIM TOMBOL + / - =====
+async def send_item_buttons(channel, ticket):
+    """Kirim tombol + dan - untuk setiap item di tiket"""
+    try:
+        for entry in ticket['items']:
+            item = get_item_by_id(entry['id'])
+            if item:
+                view = discord.ui.View()
+                
+                minus = discord.ui.Button(
+                    label="➖",
+                    style=discord.ButtonStyle.danger,
+                    custom_id=f"ticket_remove_{item['id']}"
+                )
+                
+                qty_label = discord.ui.Button(
+                    label=f"{entry['qty']}",
+                    style=discord.ButtonStyle.secondary,
+                    disabled=True
+                )
+                
+                plus = discord.ui.Button(
+                    label="➕",
+                    style=discord.ButtonStyle.primary,
+                    custom_id=f"ticket_add_{item['id']}"
+                )
+                
+                view.add_item(minus)
+                view.add_item(qty_label)
+                view.add_item(plus)
+                
+                await channel.send(f"**{item['name']}**", view=view)
+        
+    except Exception as e:
+        print(f"❌ Error send_item_buttons: {e}")
 
 if __name__ == "__main__":
     if not TOKEN:
