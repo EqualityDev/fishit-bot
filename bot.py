@@ -4,6 +4,7 @@ from discord.ext import commands
 import os
 import random
 import json
+import time
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
@@ -27,6 +28,14 @@ invoice_counter = 1000
 blacklist = set()
 user_transaction_count = {}
 LOG_CHANNEL_ID = None
+
+# ===== BROADCAST COOLDOWN =====
+# Load cooldown dari file (agar permanen walau bot restart)
+try:
+    with open('broadcast_cooldown.json', 'r') as f:
+        broadcast_cooldown = json.load(f)
+except FileNotFoundError:
+    broadcast_cooldown = {}
 
 PRODUCTS = []
 
@@ -175,6 +184,7 @@ async def send_invoice(guild, transaction_data):
         color=0x00ff00,
         timestamp=datetime.now()
     )
+    embed.set_thumbnail(url="https://i.imgur.com/55K63yR.png")
     
     embed.add_field(name="📋 NO. INVOICE", value=f"`{invoice_num}`", inline=False)
     embed.add_field(name="👑 CUSTOMER", value=f"{user_name}\n<@{transaction_data['user_id']}>", inline=True)
@@ -186,12 +196,13 @@ async def send_invoice(guild, transaction_data):
         admin = guild.get_member(int(transaction_data['admin_id']))
         if admin:
             embed.add_field(name="🛡️ ADMIN", value=admin.mention, inline=True)
+    embed.set_image(url="https://i.imgur.com/ZgLBWzX.png")
     
     if transaction_data.get('fake', False):
         marker = "​"  
-        footer_text = f"✨ Terima kasih telah bertransaksi di toko kami ✨\nCELLYN STORE{marker}"
+        footer_text = f"_\nCELLYN STORE{marker}"
     else:
-        footer_text = "✨ Terima kasih telah bertransaksi di toko kami ✨\nCELLYN STORE"
+        footer_text = "_\nCELLYN STORE"
     
     embed.set_footer(text=footer_text)
     
@@ -302,6 +313,7 @@ async def catalog(interaction: discord.Interaction):
         color=0x00ff00
     )
     embed.set_thumbnail(url="https://i.imgur.com/55K63yR.png")
+    embed.set_image(url="https://i.imgur.com/FvBULuL.png")
     
     category_order = ["LIMITED SKIN", "GAMEPASS", "CRATE", "BOOST", "NITRO", "RED FINGER", "MIDMAN", "LAINNYA"]
     for cat in category_order:
@@ -325,12 +337,134 @@ async def catalog(interaction: discord.Interaction):
 async def rate_cmd(interaction: discord.Interaction):
     await interaction.response.send_message(f"1000 RBX = Rp {RATE:,}")
 
+@bot.tree.command(name="help", description="📋 Bantuan menggunakan bot CELLYN STORE")
+async def help_command(interaction: discord.Interaction):
+    embed = discord.Embed(
+        title="📋 **BANTUAN CELLYN STORE**",
+        description="**Selamat datang di Cellyn Store!**\nBerikut adalah cara menggunakan bot kami:",
+        color=0x00ff00
+    )
+    # THUMBNAIL LOGO
+    embed.set_thumbnail(url="https://i.imgur.com/55K63yR.png")
+    
+    # 🛒 CATALOG
+    embed.add_field(
+        name="🛒 **CARA ORDER**",
+        value="```\n1. /catalog → pilih kategori\n2. Klik item → tiket terbuka\n3. Transfer sesuai total\n4. Klik PAID\n```",
+        inline=False
+    )
+    
+    # COMMANDS
+    embed.add_field(
+        name="📌 **COMMAND UNTUK CUSTOMER**",
+        value="```\n/catalog   - Lihat semua item\n/rate      - Cek rate Robux\n/items     - Lihat item di tiket\n/additem   - Tambah item\n/removeitem- Hapus item\n!cancel    - Batalkan tiket\n```",
+        inline=False
+    )
+    
+    embed.add_field(
+        name="👑 **COMMAND UNTUK ADMIN**",
+        value="```\n/addproduct - Tambah produk\n/editprice - Ubah harga\n/editname  - Ubah nama\n/deleteitem- Hapus produk\n/setrate   - Update rate\n/uploadqris- Upload QRIS\n/blacklist - Blokir user\n/stats     - Statistik\n/fakeinvoice- Test invoice\n```",
+        inline=False
+    )
+    
+    # METODE PEMBAYARAN
+    embed.add_field(
+        name="💳 **METODE PEMBAYARAN**",
+        value=f"```\n🏧 QRIS - Scan di embed\n💰 DANA - {DANA_NUMBER}\n🏦 BCA  - {BCA_NUMBER}\n```",
+        inline=False
+    )
+    
+    # FOOTER
+    embed.set_footer(
+        text="CELLYN STORE • PREMIUM DIGITAL",
+        icon_url="https://i.imgur.com/55K63yR.png"
+    )
+    
+    await interaction.response.send_message(embed=embed)
+    
+@bot.tree.command(name="broadcast", description="📢 Kirim pesan ke semua member (Admin only)")
+@app_commands.describe(pesan="isi Pesan yang mau dikirim ke semua member")
+async def broadcast(interaction: discord.Interaction, pesan: str):
+    # CEK ADMIN
+    staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
+    if staff_role not in interaction.user.roles:
+        await interaction.response.send_message("❌ Hanya admin yang bisa broadcast!", ephemeral=True)
+        return
+    
+    # ANTI SPAM: 1x PER HARI (86400 detik)
+    user_id = str(interaction.user.id)
+    last_used = broadcast_cooldown.get(user_id, 0)
+    current_time = time.time()
+    
+    if current_time - last_used < 86400:  # 24 jam
+        remaining = 86400 - (current_time - last_used)
+        jam = int(remaining // 3600)
+        menit = int((remaining % 3600) // 60)
+        
+        await interaction.response.send_message(
+            f"⏱️ Broadcast cuma bisa sekali per hari!\n"
+            f"🕐 Sisa waktu: **{jam} jam {menit} menit**",
+            ephemeral=True,
+            delete_after=10
+        )
+        return
+    
+    broadcast_cooldown[user_id] = current_time
+    
+    # Simpan cooldown ke file
+    with open('broadcast_cooldown.json', 'w') as f:
+        json.dump(broadcast_cooldown, f)
+    
+    await interaction.response.send_message(f"📢 Mengirim broadcast ke semua member...", ephemeral=True, delete_after=4)
+    
+    success = 0
+    failed = 0
+    
+    # EMBED KEREN DENGAN BANNER
+    embed = discord.Embed(
+        title="📢 **✨ PENGUMUMAN CELLYN STORE ✨**",
+        description=f"{pesan}",
+        color=0x00ff00,
+        timestamp=datetime.now()
+    )
+    
+    # LOGO DI POJOK KANAN ATAS
+    embed.set_thumbnail(url="https://i.imgur.com/55K63yR.png")
+    
+    # TAMBAH BANNER
+    embed.set_image(url="https://i.imgur.com/md5cK3K.png")
+    
+    # FOOTER DENGAN LOGO
+    embed.set_footer(
+        text="CELLYN STORE • PREMIUM DIGITAL",
+        icon_url="https://i.imgur.com/55K63yR.png"
+    )
+    
+    # Kirim ke semua member
+    for member in interaction.guild.members:
+        if member.bot:
+            continue
+        
+        try:
+            await member.send(embed=embed)
+            success += 1
+        except:
+            failed += 1
+    
+    # Laporan hasil
+    await interaction.followup.send(
+        f"✅ Broadcast selesai!\n"
+        f"📨 Terkirim: **{success}** member\n"
+        f"❌ Gagal: **{failed}** member (DM tertutup/bot)",
+        ephemeral=True
+    )
+
 @bot.tree.command(name="setrate", description="Update rate Robux (Admin only)")
 @app_commands.describe(rate="1000 RBX = berapa IDR?")
 async def setrate(interaction: discord.Interaction, rate: int):
     staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
     if staff_role not in interaction.user.roles:
-        await interaction.response.send_message("Admin only!", ephemeral=True)
+        await interaction.response.send_message("Admin only!", ephemeral=True, delete_after=5)
         return
     global RATE
     RATE = rate
@@ -494,7 +628,7 @@ async def fake_invoice(interaction: discord.Interaction, jumlah: int = 1):
         await interaction.response.send_message("❌ Jumlah minimal 1, maksimal 5", ephemeral=True)
         return
     
-    await interaction.response.send_message(f"🧪 Generating {jumlah} fake invoice...", ephemeral=True)
+    await interaction.response.send_message(f"🧪 Generating {jumlah} fake invoice...", ephemeral=True, delete_after=3)
     
     # ===== 125+ NAMA BUYER RANDOM =====
     buyer_names = [
@@ -730,7 +864,7 @@ async def on_interaction(interaction: discord.Interaction):
                 style=discord.ButtonStyle.secondary,
                 custom_id=f"item_{item['id']}"
             ))
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True, delete_after=20)
     elif custom_id.startswith('item_'):
         item_id = int(custom_id.replace('item_', ''))
         item = next((p for p in PRODUCTS if p['id'] == item_id), None)
@@ -815,7 +949,7 @@ async def on_interaction(interaction: discord.Interaction):
         embed.set_image(url="https://i.imgur.com/5JKf3tg.jpeg")
         await channel.send(f"Hallo {user.mention}!", embed=embed)
         await send_item_buttons(channel, ticket)
-        await interaction.response.send_message(f"Ticket created: {channel.mention}", ephemeral=True)
+        await interaction.response.send_message(f"Ticket created: {channel.mention}", ephemeral=True, delete_after=5)
         
     # ===== HANDLER TOMBOL TAMBAH =====
     if custom_id.startswith('ticket_add_'):
