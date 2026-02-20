@@ -7,6 +7,13 @@ import json
 import time
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+import sqlite3
+import aiosqlite
+import shutil
+import asyncio
+import csv
+import io
+import logging
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -28,6 +35,187 @@ invoice_counter = 1000
 blacklist = set()
 user_transaction_count = {}
 LOG_CHANNEL_ID = None
+logger = logging.getLogger(__name__)
+
+# ==================== DATABASE SEDERHANA ====================
+
+class SimpleDB:
+    
+    def __init__(self, db_name="store.db"):
+        self.db_name = db_name
+        self.init_db()
+    
+    def init_db(self):
+        """Buat tabel kalo belum ada"""
+        conn = sqlite3.connect(self.db_name)
+        c = conn.cursor()
+        
+        # Tabel transaksi
+        c.execute('''CREATE TABLE IF NOT EXISTS transactions
+                     (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      invoice TEXT,
+                      user_id TEXT,
+                      items TEXT,
+                      total_price INTEGER,
+                      payment_method TEXT,
+                      timestamp TEXT)''')
+        
+        # Tabel blacklist
+        c.execute('''CREATE TABLE IF NOT EXISTS blacklist
+                     (user_id TEXT PRIMARY KEY,
+                      reason TEXT,
+                      timestamp TEXT)''')
+        
+        conn.commit()
+        conn.close()
+        print("✅ Database siap")
+    
+    def save_transaction(self, trans_data):
+        """Simpan transaksi ke database"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+            
+            # Konversi items ke JSON string
+            items_json = json.dumps(trans_data['items'])
+            
+            c.execute('''INSERT INTO transactions 
+                        (invoice, user_id, items, total_price, payment_method, timestamp)
+                        VALUES (?, ?, ?, ?, ?, ?)''',
+                     (trans_data['invoice'],
+                      trans_data['user_id'],
+                      items_json,
+                      trans_data['total_price'],
+                      trans_data.get('payment_method', ''),
+                      datetime.now().isoformat()))
+            
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"❌ Error simpan transaksi: {e}")
+            return False
+    
+    def get_user_transactions(self, user_id, limit=5):
+        """Ambil transaksi user"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+            
+            c.execute('''SELECT * FROM transactions 
+                        WHERE user_id = ? 
+                        ORDER BY timestamp DESC 
+                        LIMIT ?''', (user_id, limit))
+            
+            rows = c.fetchall()
+            conn.close()
+            
+            # Convert ke format yang sama kayak kode lama
+            result = []
+            for row in rows:
+                result.append({
+                    'invoice': row[1],
+                    'user_id': row[2],
+                    'items': json.loads(row[3]),
+                    'total_price': row[4],
+                    'payment_method': row[5],
+                    'timestamp': datetime.fromisoformat(row[6])
+                })
+            return result
+        except Exception as e:
+            print(f"❌ Error ambil transaksi: {e}")
+            return []
+    
+    def get_all_transactions(self):
+        """Ambil semua transaksi"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+            
+            c.execute('SELECT * FROM transactions ORDER BY timestamp DESC')
+            rows = c.fetchall()
+            conn.close()
+            
+            result = []
+            for row in rows:
+                result.append({
+                    'invoice': row[1],
+                    'user_id': row[2],
+                    'items': json.loads(row[3]),
+                    'total_price': row[4],
+                    'payment_method': row[5],
+                    'timestamp': datetime.fromisoformat(row[6])
+                })
+            return result
+        except Exception as e:
+            print(f"❌ Error ambil semua transaksi: {e}")
+            return []
+    
+    def add_blacklist(self, user_id, reason=""):
+        """Tambah user ke blacklist"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+            
+            c.execute('''INSERT OR REPLACE INTO blacklist 
+                        (user_id, reason, timestamp)
+                        VALUES (?, ?, ?)''',
+                     (user_id, reason, datetime.now().isoformat()))
+            
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"❌ Error blacklist: {e}")
+            return False
+    
+    def remove_blacklist(self, user_id):
+        """Hapus dari blacklist"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+            
+            c.execute('DELETE FROM blacklist WHERE user_id = ?', (user_id,))
+            
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"❌ Error hapus blacklist: {e}")
+            return False
+    
+    def is_blacklisted(self, user_id):
+        """Cek apakah user di-blacklist"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+            
+            c.execute('SELECT 1 FROM blacklist WHERE user_id = ?', (user_id,))
+            result = c.fetchone() is not None
+            
+            conn.close()
+            return result
+        except Exception as e:
+            print(f"❌ Error cek blacklist: {e}")
+            return False
+    
+    def get_blacklist(self):
+        """Ambil semua data blacklist"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+        
+            c.execute('SELECT user_id, reason, timestamp FROM blacklist ORDER BY timestamp DESC')
+            rows = c.fetchall()
+        
+            conn.close()
+            return rows
+        except Exception as e:
+            print(f"❌ Error ambil blacklist: {e}")
+            return []
+
+# Init database
+db = SimpleDB()
 
 # ===== BROADCAST COOLDOWN =====
 # Load cooldown dari file (agar permanen walau bot restart)
@@ -207,6 +395,8 @@ async def send_invoice(guild, transaction_data):
     embed.set_footer(text=footer_text)
     
     await channel.send(embed=embed)
+
+    db.save_transaction(transaction_data)
     return invoice_num
 
 def calculate_total(items):
@@ -217,30 +407,448 @@ def format_items(items):
         return "Tidak ada item"
     return "\n".join([f"{item['qty']}x {item['name']} = Rp {item['price']*item['qty']:,}" for item in items])
 
+# ==================== BACKUP OTOMATIS ====================
+
+async def auto_backup():
+    """Backup database otomatis setiap 6 jam"""
+    while True:
+        await asyncio.sleep(21600)  # 6 jam = 21600 detik
+        
+        try:
+            # Bikin folder backups kalo belum ada
+            os.makedirs("backups", exist_ok=True)
+            
+            # Format nama file
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_name = f"backups/store_backup_{timestamp}.db"
+            
+            # Copy file database
+            shutil.copy2("store.db", backup_name)
+            
+            # Hapus backup lama (lebih dari 7 hari)
+            cleanup_old_backups()
+            
+            logger.info(f"✅ Auto backup berhasil: {backup_name}")
+            
+        except Exception as e:
+            logger.error(f"❌ Gagal backup otomatis: {e}")
+
+def cleanup_old_backups(days=7):
+    """Hapus backup yang lebih dari X hari"""
+    try:
+        now = datetime.now().timestamp()
+        cutoff = now - (days * 86400)  # 86400 detik per hari
+        
+        for file in os.listdir("backups"):
+            file_path = os.path.join("backups", file)
+            if os.path.isfile(file_path):
+                file_time = os.path.getmtime(file_path)
+                if file_time < cutoff:
+                    os.remove(file_path)
+                    logger.info(f"🗑️ Hapus backup lama: {file}")
+    except Exception as e:
+        logger.error(f"❌ Gagal cleanup backup: {e}")
+        
+@bot.tree.command(name="ping", description="Cek respon bot")
+async def ping(interaction: discord.Interaction):
+    start = time.time()
+    await interaction.response.send_message("🏓 Pinging...")
+    end = time.time()
+    
+    latency = round((end - start) * 1000)
+    ws_latency = round(bot.latency * 1000)
+    
+    await interaction.edit_original_response(
+        content=f"🏓 **Pong!**\n📡 Latensi: {latency}ms\n🌐 WebSocket: {ws_latency}ms"
+    )
+
+@bot.tree.command(name="listbackup", description="[ADMIN] Lihat daftar backup")
+async def list_backups(interaction: discord.Interaction):
+    # Cek admin
+    staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
+    if staff_role not in interaction.user.roles:
+        await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+        return
+    
+    if not os.path.exists("backups"):
+        await interaction.response.send_message("📁 Folder backups belum ada.")
+        return
+    
+    backups = sorted(os.listdir("backups"), reverse=True)[:10]
+    
+    if not backups:
+        await interaction.response.send_message("📝 Belum ada backup.")
+        return
+    
+    embed = discord.Embed(title="📁 DAFTAR BACKUP", color=0x00ff00)
+    
+    for b in backups:
+        size = os.path.getsize(f"backups/{b}") / 1024
+        embed.add_field(name=b, value=f"{size:.2f} KB", inline=False)
+    
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="statdetail", description="[ADMIN] Statistik detail penjualan")
+async def stats_detail(interaction: discord.Interaction):
+    # Cek admin
+    staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
+    if staff_role not in interaction.user.roles:
+        await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+        return
+    
+    all_trans = db.get_all_transactions() + transactions
+    
+    # Filter transaksi real (bukan fake)
+    real_trans = [t for t in all_trans if not t.get('fake')]
+    
+    if not real_trans:
+        await interaction.response.send_message("📝 Belum ada transaksi real.")
+        return
+    
+    # Hitung berbagai statistik
+    total_real = len(real_trans)
+    total_fake = len(all_trans) - total_real
+    total_omset = sum(t['total_price'] for t in real_trans)
+    avg_transaksi = total_omset / total_real if total_real else 0
+    
+    # Transaksi per metode
+    metode = {}
+    for t in real_trans:
+        m = t.get('payment_method', 'Unknown')
+        metode[m] = metode.get(m, 0) + 1
+    
+    metode_str = "\n".join([f"  {m}: {c}x" for m, c in metode.items()])
+    
+    # Rata-rata per hari
+    first_date = min(datetime.fromisoformat(t['timestamp']) for t in real_trans)
+    days_active = max(1, (datetime.now() - first_date).days)
+    avg_daily = total_omset / days_active
+    
+    embed = discord.Embed(
+        title="📊 STATISTIK DETAIL",
+        color=0x00ff00,
+        timestamp=datetime.now()
+    )
+    
+    embed.add_field(name="💰 Total Omset", value=f"Rp {total_omset:,}", inline=True)
+    embed.add_field(name="📦 Total Transaksi", value=f"{total_real} real / {total_fake} fake", inline=True)
+    embed.add_field(name="📈 Rata-rata", value=f"Rp {avg_transaksi:,.0f}/transaksi", inline=True)
+    embed.add_field(name="📅 Rata-rata/hari", value=f"Rp {avg_daily:,.0f}", inline=True)
+    embed.add_field(name="💳 Metode", value=metode_str or "-", inline=True)
+    embed.add_field(name="👥 Total User", value=len(set(t['user_id'] for t in real_trans)), inline=True)
+    
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="resetdb", description="[ADMIN] Reset database (hapus semua transaksi)")
+async def reset_database(interaction: discord.Interaction):
+    # Cek admin
+    staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
+    if staff_role not in interaction.user.roles:
+        await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+        return
+    
+    # Konfirmasi dulu
+    view = discord.ui.View()
+    confirm = discord.ui.Button(label="✅ YA, Reset!", style=discord.ButtonStyle.danger)
+    cancel = discord.ui.Button(label="❌ Batal", style=discord.ButtonStyle.secondary)
+    
+    async def confirm_callback(interaction):
+        # Backup dulu sebelum reset
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_name = f"backups/pre_reset_backup_{timestamp}.db"
+        os.makedirs("backups", exist_ok=True)
+        shutil.copy2("store.db", backup_name)
+        
+        # Reset database
+        os.remove("store.db")
+        db = SimpleDB()  # Init ulang
+        
+        await interaction.response.edit_message(
+            content=f"✅ Database telah direset!\n📁 Backup otomatis: `{backup_name}`",
+            view=None
+        )
+    
+    async def cancel_callback(interaction):
+        await interaction.response.edit_message(content="❌ Reset dibatalkan.", view=None)
+    
+    confirm.callback = confirm_callback
+    cancel.callback = cancel_callback
+    view.add_item(confirm)
+    view.add_item(cancel)
+    
+    await interaction.response.send_message(
+        "⚠️ **PERINGATAN!**\nIni akan menghapus SEMUA transaksi! Yakin?",
+        view=view,
+        ephemeral=True
+    )
+
+@bot.tree.command(name="export", description="[ADMIN] Export transaksi ke file CSV")
+@app_commands.describe(
+    filter_user="Filter berdasarkan user (opsional)",
+    filter_days="Filter jumlah hari terakhir (opsional)"
+    )
+async def export_transactions(
+    interaction: discord.Interaction, 
+    filter_user: discord.User = None,
+    filter_days: int = None
+    ):
+    """Export data transaksi ke CSV"""
+    # Cek admin
+    staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
+    if staff_role not in interaction.user.roles:
+        await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+        return
+    
+    await interaction.response.defer(ephemeral=True)  # Biar gak timeout
+    
+    try:
+        # Ambil semua transaksi dari database
+        all_trans = db.get_all_transactions()
+        
+        # Gabung dengan transaksi di memory
+        all_trans = all_trans + transactions
+        
+        # Filter berdasarkan user
+        if filter_user:
+            user_id = str(filter_user.id)
+            all_trans = [t for t in all_trans if t['user_id'] == user_id]
+        
+        # Filter berdasarkan hari
+        if filter_days:
+            cutoff = datetime.now() - timedelta(days=filter_days)
+            all_trans = [t for t in all_trans 
+                        if datetime.fromisoformat(t['timestamp']) >= cutoff]
+        
+        if not all_trans:
+            await interaction.followup.send("📝 Tidak ada data transaksi.", ephemeral=True)
+            return
+        
+        # Bikin file CSV di memory
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Header
+        writer.writerow([
+            'Invoice', 
+            'User ID', 
+            'Username',
+            'Items', 
+            'Total (Rp)', 
+            'Metode', 
+            'Tanggal', 
+            'Fake',
+            'Admin'
+        ])
+        
+        # Data
+        for t in all_trans:
+            # Cari username
+            username = "Unknown"
+            try:
+                user = await bot.fetch_user(int(t['user_id']))
+                username = user.name
+            except:
+                pass
+            
+            # Format items (dipendekin biar gak terlalu panjang)
+            if isinstance(t['items'], str):
+                items = json.loads(t['items'])
+            else:
+                items = t['items']
+            
+            items_str = ", ".join([f"{i['qty']}x {i['name'][:20]}" for i in items])
+            
+            writer.writerow([
+                t['invoice'],
+                t['user_id'],
+                username,
+                items_str[:100],  # potong kalo kepanjangan
+                t['total_price'],
+                t.get('payment_method', '-'),
+                t['timestamp'][:19],  # ambil YYYY-MM-DD HH:MM:SS aja
+                'Ya' if t.get('fake') else 'Tidak',
+                t.get('admin_id', '-')
+            ])
+        
+        # Siapkan file untuk dikirim
+        output.seek(0)
+        
+        # Nama file
+        filename = f"transactions_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        
+        # Kirim file
+        await interaction.followup.send(
+            content=f"📊 **Export data transaksi**\n"
+                    f"Total: {len(all_trans)} transaksi\n"
+                    f"Filter: {filter_user.name if filter_user else 'Semua user'} | "
+                    f"{filter_days or 'Semua'} hari terakhir",
+            file=discord.File(
+                fp=io.BytesIO(output.getvalue().encode('utf-8-sig')), 
+                filename=filename
+            ),
+            ephemeral=True
+        )
+        
+    except Exception as e:
+        logger.error(f"Error export: {e}")
+        await interaction.followup.send(f"❌ Gagal export: {str(e)[:100]}", ephemeral=True)
+
+@bot.tree.command(name="backup", description="[ADMIN] Backup database manual")
+async def manual_backup(interaction: discord.Interaction):
+    """Backup database secara manual"""
+    # Cek admin
+    staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
+    if staff_role not in interaction.user.roles:
+        await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+        return
+    
+    try:
+        # Bikin folder backups
+        os.makedirs("backups", exist_ok=True)
+        
+        # Format nama file
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_name = f"backups/manual_backup_{timestamp}.db"
+        
+        # Copy database
+        shutil.copy2("store.db", backup_name)
+        
+        # Hitung ukuran file
+        size = os.path.getsize(backup_name) / 1024  # KB
+        
+        await interaction.response.send_message(
+            f"✅ **Backup berhasil!**\n"
+            f"📁 File: `{backup_name}`\n"
+            f"📊 Ukuran: `{size:.2f} KB`\n"
+            f"🕒 Waktu: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+        )
+        
+    except Exception as e:
+        await interaction.response.send_message(f"❌ Gagal backup: {str(e)[:100]}")
+
 @bot.tree.command(name="history", description="Lihat riwayat transaksi pribadi")
 async def history(interaction: discord.Interaction):
     user_id = str(interaction.user.id)
-    user_transactions = [t for t in transactions if t['user_id'] == user_id]
+    
+    # Ambil dari database dulu (5 transaksi terakhir)
+    user_transactions = db.get_user_transactions(user_id, limit=5)
+    
+    # Kalau dari database kosong, ambil dari list lama
+    if not user_transactions:
+        user_transactions = [t for t in transactions if t['user_id'] == user_id][-5:]
+    
     if not user_transactions:
         await interaction.response.send_message("Belum ada transaksi.", ephemeral=True)
         return
+    
+    # Hitung total semua transaksi user
+    all_user = db.get_user_transactions(user_id, limit=1000)
+    total_trans = len(all_user) if all_user else len([t for t in transactions if t['user_id'] == user_id])
+    
     last_5 = user_transactions[-5:]
     embed = discord.Embed(
         title="RIWAYAT TRANSAKSI",
-        description=f"Total: {len(user_transactions)} transaksi",
+        description=f"Total: {total_trans} transaksi",
         color=0x3498db
     )
+    
     for t in reversed(last_5):
-        date_str = t['timestamp'].strftime("%d/%m/%Y %H:%M")
-        items_short = ", ".join([f"{i['qty']}x {i['name'][:15]}" for i in t['items'][:2]])
-        if len(t['items']) > 2:
-            items_short += f" +{len(t['items'])-2} lagi"
+        # Parse timestamp
+        if isinstance(t['timestamp'], str):
+            try:
+                timestamp = datetime.fromisoformat(t['timestamp'])
+            except:
+                timestamp = datetime.now()
+        else:
+            timestamp = t['timestamp']
+        
+        date_str = timestamp.strftime("%d/%m/%Y %H:%M")
+        
+        # Handle items (bisa string JSON atau list)
+        if isinstance(t['items'], str):
+            items = json.loads(t['items'])
+        else:
+            items = t['items']
+        
+        items_short = ", ".join([f"{i['qty']}x {i['name'][:15]}" for i in items[:2]])
+        if len(items) > 2:
+            items_short += f" +{len(items)-2} lagi"
+        
         embed.add_field(
             name=f"{t['invoice']} - {date_str}",
             value=f"{items_short} | Rp {t['total_price']:,} | {t.get('payment_method', '-')}",
             inline=False
         )
+    
     await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.tree.command(name="allhistory", description="[ADMIN] Lihat SEMUA riwayat transaksi user")
+@app_commands.describe(user="User yang mau dilihat transaksinya")
+async def all_history(interaction: discord.Interaction, user: discord.User):
+    # Cek admin
+    staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
+    if staff_role not in interaction.user.roles:
+        await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+        return
+    
+    user_id = str(user.id)
+    
+    # Ambil SEMUA transaksi dari database
+    all_trans = db.get_user_transactions(user_id, limit=1000)  # ambil semua
+    
+    # Kalo kosong, coba dari list lama
+    if not all_trans:
+        all_trans = [t for t in transactions if t['user_id'] == user_id]
+    
+    if not all_trans:
+        await interaction.response.send_message(f"📝 {user.mention} belum punya transaksi.", ephemeral=True)
+        return
+    
+    # Hitung total
+    total_trans = len(all_trans)
+    total_spent = sum(t['total_price'] for t in all_trans)
+    
+    # Buat embed
+    embed = discord.Embed(
+        title=f"📋 SEMUA TRANSAKSI {user.name}",
+        description=f"Total: **{total_trans}** transaksi | Total belanja: **Rp {total_spent:,}**",
+        color=0x3498db
+    )
+    
+    # Tampilin 10 terakhir (biar gak kepanjangan)
+    for t in all_trans[-10:]:
+        # Parse timestamp
+        if isinstance(t['timestamp'], str):
+            try:
+                timestamp = datetime.fromisoformat(t['timestamp'])
+            except:
+                timestamp = datetime.now()
+        else:
+            timestamp = t['timestamp']
+        
+        date_str = timestamp.strftime("%d/%m/%Y %H:%M")
+        
+        # Parse items
+        if isinstance(t['items'], str):
+            items = json.loads(t['items'])
+        else:
+            items = t['items']
+        
+        # Ringkas items
+        items_short = ", ".join([f"{i['qty']}x {i['name'][:15]}" for i in items[:2]])
+        if len(items) > 2:
+            items_short += f" +{len(items)-2} lagi"
+        
+        embed.add_field(
+            name=f"{t['invoice']} - {date_str}",
+            value=f"{items_short} | Rp {t['total_price']:,} | {t.get('payment_method', '-')}",
+            inline=False
+        )
+    
+    if total_trans > 10:
+        embed.set_footer(text=f"Menampilkan 10 transaksi terakhir dari {total_trans}")
+    
+    await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="stats", description="Lihat statistik penjualan (Admin only)")
 async def stats(interaction: discord.Interaction):
@@ -248,25 +856,69 @@ async def stats(interaction: discord.Interaction):
     if staff_role not in interaction.user.roles:
         await interaction.response.send_message("Admin only!", ephemeral=True)
         return
+    
+    # ===== GABUNG DATA DARI DATABASE + MEMORY =====
+    db_transactions = db.get_all_transactions()
+    all_transactions = db_transactions + transactions  # Gabung database + list lama
+    # ===============================================
+    
     today = datetime.now().date()
     week_ago = today - timedelta(days=7)
     month_ago = today - timedelta(days=30)
-    today_trans = [t for t in transactions if t['timestamp'].date() == today]
-    week_trans = [t for t in transactions if t['timestamp'].date() >= week_ago]
-    month_trans = [t for t in transactions if t['timestamp'].date() >= month_ago]
-    total_revenue = sum(t['total_price'] for t in transactions)
+    
+    today_trans = []
+    week_trans = []
+    month_trans = []
+    
+    for t in all_transactions:
+        try:
+            # Handle timestamp (bisa string atau datetime)
+            if isinstance(t['timestamp'], str):
+                t_date = datetime.fromisoformat(t['timestamp']).date()
+            else:
+                t_date = t['timestamp'].date()
+            
+            if t_date == today:
+                today_trans.append(t)
+            if t_date >= week_ago:
+                week_trans.append(t)
+            if t_date >= month_ago:
+                month_trans.append(t)
+        except:
+            continue
+    
+    total_revenue = sum(t['total_price'] for t in all_transactions)
     today_revenue = sum(t['total_price'] for t in today_trans)
     week_revenue = sum(t['total_price'] for t in week_trans)
     month_revenue = sum(t['total_price'] for t in month_trans)
+    
     embed = discord.Embed(
         title="STATISTIK PENJUALAN",
         color=0x00ff00,
         timestamp=datetime.now()
     )
-    embed.add_field(name="HARI INI", value=f"{len(today_trans)} transaksi\nRp {today_revenue:,}", inline=True)
-    embed.add_field(name="7 HARI", value=f"{len(week_trans)} transaksi\nRp {week_revenue:,}", inline=True)
-    embed.add_field(name="30 HARI", value=f"{len(month_trans)} transaksi\nRp {month_revenue:,}", inline=True)
-    embed.add_field(name="TOTAL", value=f"{len(transactions)} transaksi\nRp {total_revenue:,}", inline=False)
+    
+    embed.add_field(
+        name="HARI INI",
+        value=f"{len(today_trans)} transaksi\nRp {today_revenue:,}",
+        inline=True
+    )
+    embed.add_field(
+        name="7 HARI",
+        value=f"{len(week_trans)} transaksi\nRp {week_revenue:,}",
+        inline=True
+    )
+    embed.add_field(
+        name="30 HARI",
+        value=f"{len(month_trans)} transaksi\nRp {month_revenue:,}",
+        inline=True
+    )
+    embed.add_field(
+        name="TOTAL",
+        value=f"{len(all_transactions)} transaksi\nRp {total_revenue:,}",
+        inline=False
+    )
+    
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="blacklist", description="Blacklist user (Admin only)")
@@ -276,9 +928,15 @@ async def blacklist_user(interaction: discord.Interaction, user: discord.User, r
     if staff_role not in interaction.user.roles:
         await interaction.response.send_message("Admin only!", ephemeral=True)
         return
+    
+    # Simpan di memory (buat kompatibilitas)
     blacklist.add(str(user.id))
+    
+    # Simpan di database (biar permanen)
+    db.add_blacklist(str(user.id), reason)
+    
     embed = discord.Embed(
-        title="BLACKLIST",
+        title="⛔ BLACKLIST",
         description=f"User: {user.mention}\nAlasan: {reason}",
         color=0xff0000,
         timestamp=datetime.now()
@@ -293,11 +951,15 @@ async def unblacklist(interaction: discord.Interaction, user: discord.User):
     if staff_role not in interaction.user.roles:
         await interaction.response.send_message("Admin only!", ephemeral=True)
         return
+    
+    # Hapus dari memory
     if str(user.id) in blacklist:
         blacklist.remove(str(user.id))
-        await interaction.response.send_message(f"{user.mention} dihapus dari blacklist.")
-    else:
-        await interaction.response.send_message(f"{user.mention} tidak ada di blacklist.", ephemeral=True)
+    
+    # Hapus dari database
+    db.remove_blacklist(str(user.id))
+    
+    await interaction.response.send_message(f"✅ {user.mention} dihapus dari blacklist.")
 
 @bot.tree.command(name="catalog", description="Lihat semua item")
 async def catalog(interaction: discord.Interaction):
@@ -1164,6 +1826,15 @@ async def send_item_buttons(channel, ticket):
         
     except Exception as e:
         print(f"❌ Error send_item_buttons: {e}")
+
+# Jalankan auto backup di background
+@bot.event
+async def on_ready():
+    # ... (kode on_ready yang udah ada) ...
+    
+    # Mulai auto backup
+    bot.loop.create_task(auto_backup())
+    logger.info("🔄 Auto backup task started")
 
 if __name__ == "__main__":
     if not TOKEN:
