@@ -61,6 +61,13 @@ class SimpleDB:
                       payment_method TEXT,
                       timestamp TEXT)''')
         
+        # Tabel products
+        c.execute('''CREATE TABLE IF NOT EXISTS products
+                     (id INTEGER PRIMARY KEY,
+                      name TEXT,
+                      price INTEGER,
+                      category TEXT)''')
+
         # Tabel blacklist
         c.execute('''CREATE TABLE IF NOT EXISTS blacklist
                      (user_id TEXT PRIMARY KEY,
@@ -1278,23 +1285,44 @@ async def catalog(interaction: discord.Interaction):
     )
     embed.set_thumbnail(url="https://i.imgur.com/55K63yR.png")
     embed.set_image(url="https://i.imgur.com/FvBULuL.png")
+
+    # ===== KATEGORI OTOMATIS (GAK PERLU EDIT KODE LAGI) =====
+    # Ambil semua kategori dari produk yang ADA
+    all_categories = list(categories.keys())
     
-    category_order = ["LIMITED SKIN", "GAMEPASS", "CRATE", "BOOST", "NITRO", "RED FINGER", "MIDMAN", "LAINNYA"]
+    # Urutan prioritas (kategori lama biar tetap di depan)
+    priority_order = ["LIMITED SKIN", "GAMEPASS", "CRATE", "BOOST", "NITRO", "RED FINGER", "MIDMAN", "LAINNYA"]
+    
+    # Gabungkan: kategori prioritas dulu, baru sisanya
+    category_order = []
+    for cat in priority_order:
+        if cat in all_categories:
+            category_order.append(cat)
+            all_categories.remove(cat)
+    
+    # Tambah sisa kategori yang belum masuk (kategori baru otomatis masuk)
+    category_order.extend(all_categories)
+    # ======================================================
+
+    # Tampilkan produk sesuai urutan
     for cat in category_order:
         if cat in categories:
-            items = categories[cat][:5]
+            items = categories[cat][:5]  # Max 5 produk per kategori
             value = ""
             for item in items:
-                value += f"ID:{item['id']} - {item['name']} - Rp {item['price']:,}\n"
+                value += f"ID: {item['id']} - {item['name']} - Rp {item['price']:,}\n"
             embed.add_field(name=cat, value=value or "-", inline=False)
+
+    # Buat tombol sesuai kategori yang ADA (bukan cuma priority_order)
     view = discord.ui.View()
-    for cat in category_order:
+    for cat in category_order:  # <-- PAKE category_order, BUKAN priority_order
         if cat in categories:
             view.add_item(discord.ui.Button(
-                label=f"BUY {cat}", 
-                style=discord.ButtonStyle.primary, 
+                label=f"BUY {cat}",
+                style=discord.ButtonStyle.primary,
                 custom_id=f"buy_{cat}"
             ))
+
     await interaction.response.send_message(embed=embed, view=view)
 
 @bot.tree.command(name="rate", description="Cek rate Robux")
@@ -1910,7 +1938,7 @@ async def on_interaction(interaction: discord.Interaction):
             text="CELLYN STORE • PREMIUM DIGITAL",
             icon_url="https://i.imgur.com/55K63yR.png"
         )
-        embed.set_image(url="https://i.imgur.com/5JKf3tg.jpeg")
+        embed.set_image(url="https://i.imgur.com/FvBULuL.png")
         await channel.send(f"Hallo {user.mention}!", embed=embed)
         await send_item_buttons(channel, ticket)
         await interaction.response.send_message(f"Ticket created: {channel.mention}", ephemeral=True, delete_after=5)
@@ -2086,12 +2114,32 @@ async def on_ready():
     global LOG_CHANNEL_ID
     LOG_CHANNEL_ID = None
     load_products()
+
+    # Delay biar koneksi stabil
+    await asyncio.sleep(2)
+
+    # Sync commands
     try:
         synced = await bot.tree.sync()
-        print(f"Commands: {len(synced)}")
+        print(f"✅ Commands synced: {len(synced)}")
+
+        # Tampilin daftar command
+        cmd_list = [cmd.name for cmd in synced]
+        print(f"📋 Commands: {', '.join(cmd_list)}")
+
+        # Cek apakah /ping ada
+        if 'ping' in cmd_list:
+            print("✅ /ping is registered!")
+        else:
+            print("❌ /ping NOT found in synced commands")
 
     except Exception as e:
-        print(f"Sync error: {e}")
+        print(f"❌ Sync error: {e}")
+
+    # ===== AUTO BACKUP (PINDAHIN DARI BAWAH) =====
+    bot.loop.create_task(auto_backup())
+    print("🔄 Auto backup task started")
+    # =============================================
 
 # ===== FUNGSI KIRIM TOMBOL + / - =====
 async def send_item_buttons(channel, ticket):
@@ -2129,14 +2177,7 @@ async def send_item_buttons(channel, ticket):
     except Exception as e:
         print(f"❌ Error send_item_buttons: {e}")
 
-# Jalankan auto backup di background
-@bot.event
-async def on_ready():
-    # ... (kode on_ready yang udah ada) ...
-    
-    # Mulai auto backup
-    bot.loop.create_task(auto_backup())
-    logger.info("🔄 Auto backup task started")
+
 
 if __name__ == "__main__":
     if not TOKEN:
