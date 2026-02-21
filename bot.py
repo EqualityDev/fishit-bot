@@ -14,6 +14,7 @@ import asyncio
 import csv
 import io
 import logging
+import html
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -213,10 +214,44 @@ class SimpleDB:
         except Exception as e:
             print(f"❌ Error ambil blacklist: {e}")
             return []
+    def save_products(self, products):
+        """Simpan produk ke database"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+        
+        # Hapus semua produk lama dulu
+            c.execute('DELETE FROM products')
+        
+        # Insert produk baru
+            for p in products:
+                c.execute('''
+                    INSERT INTO products (id, name, price, category)
+                    VALUES (?, ?, ?, ?)
+                ''', (p['id'], p['name'], p['price'], p['category']))
+        
+            conn.commit()
+            conn.close()
+            print(f"✅ Saved {len(products)} products to database")
+            return True
+        except Exception as e:
+            print(f"❌ Error saving products: {e}")
+            return False
 
 # Init database
 db = SimpleDB()
-
+# Poad product from json
+global PRODUCTS
+try:
+    with open('products.json', 'r') as f:
+        PRODUCTS = json.load(f)
+    print(f"✅ Load {len(PRODUCTS)} products from products.json")
+    
+    # Simpan ke database biar kedepannya aman
+    db.save_products(PRODUCTS)
+except Exception as e:
+    print(f"❌ Gagal load products.json: {e}")
+    PRODUCTS = []
 # ===== BROADCAST COOLDOWN =====
 # Load cooldown dari file (agar permanen walau bot restart)
 try:
@@ -224,8 +259,6 @@ try:
         broadcast_cooldown = json.load(f)
 except FileNotFoundError:
     broadcast_cooldown = {}
-
-PRODUCTS = []
 
 def get_item_by_id(item_id):
     return next((p for p in PRODUCTS if p['id'] == item_id), None)
@@ -406,6 +439,275 @@ def format_items(items):
     if not items:
         return "Tidak ada item"
     return "\n".join([f"{item['qty']}x {item['name']} = Rp {item['price']*item['qty']:,}" for item in items])
+
+    
+async def generate_html_transcript(channel, closed_by):
+    """
+    Generate HTML transcript dari channel ticket
+    Hasil: file HTML dengan tampilan mirip Discord
+    """
+    
+    # 1. Kumpulin semua pesan (dari lama ke baru)
+    messages = []
+    async for msg in channel.history(limit=1000, oldest_first=True):
+        # Format waktu
+        timestamp = msg.created_at.strftime("%H:%M %d/%m/%Y")
+        
+        # Escape konten biar aman di HTML
+        content = html.escape(msg.content) if msg.content else ""
+        
+        # Handle attachment
+        attachments = ""
+        if msg.attachments:
+            for att in msg.attachments:
+                attachments += f'<br>📎 <a href="{att.url}" target="_blank">{html.escape(att.filename)}</a>'
+        
+        # Handle embed (sederhana)
+        embeds = ""
+        if msg.embeds:
+            embeds = "<br>📦 [Embed]"
+        
+        # Tentukan role (staff/bot/user)
+        role_class = "user"
+        if msg.author.bot:
+            role_class = "bot"
+        else:
+            # Cek apakah dia staff (pake STAFF_ROLE_NAME dari config)
+            staff_role = discord.utils.get(msg.author.roles, name=STAFF_ROLE_NAME)
+            if staff_role:
+                role_class = "staff"
+        
+        # Avatar URL
+        if msg.author.avatar:
+            avatar_url = msg.author.avatar.url
+        else:
+            # Default avatar Discord
+            avatar_url = f"https://cdn.discordapp.com/embed/avatars/{int(msg.author.id) % 5}.png"
+        
+        messages.append({
+            'timestamp': timestamp,
+            'author': html.escape(msg.author.display_name),
+            'author_id': msg.author.id,
+            'avatar': avatar_url,
+            'content': content,
+            'attachments': attachments,
+            'embeds': embeds,
+            'role': role_class,
+            'is_bot': msg.author.bot
+        })
+    
+    # 2. Template HTML (bawaan, gak perlu file terpisah)
+    html_template = f"""<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transcript Tiket - {html.escape(channel.name)}</title>
+    <style>
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+        body {{
+            font-family: 'Whitney', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: #36393f;
+            color: #dcddde;
+            line-height: 1.5;
+            padding: 20px;
+        }}
+        .transcript-container {{
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #2f3136;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }}
+        .header {{
+            background-color: #202225;
+            padding: 20px 25px;
+            border-bottom: 2px solid #40444b;
+        }}
+        .header h1 {{
+            color: #fff;
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }}
+        .header p {{
+            color: #b9bbbe;
+            font-size: 14px;
+            margin: 3px 0;
+        }}
+        .messages-area {{
+            padding: 20px 25px;
+        }}
+        .message {{
+            display: flex;
+            margin: 15px 0;
+            padding: 5px 0;
+            border-bottom: 1px solid #40444b;
+        }}
+        .message:last-child {{
+            border-bottom: none;
+        }}
+        .avatar {{
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }}
+        .message-content {{
+            flex: 1;
+            min-width: 0;
+        }}
+        .author-row {{
+            display: flex;
+            align-items: baseline;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 5px;
+        }}
+        .author {{
+            font-weight: 600;
+            font-size: 16px;
+        }}
+        .staff .author {{ color: #43b581; }}
+        .bot .author {{ color: #faa61a; }}
+        .user .author {{ color: #7289da; }}
+        .timestamp {{
+            color: #72767d;
+            font-size: 12px;
+            font-weight: 400;
+        }}
+        .content {{
+            color: #dcddde;
+            font-size: 15px;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }}
+        .attachment {{
+            margin-top: 8px;
+        }}
+        .attachment a {{
+            color: #00aff4;
+            text-decoration: none;
+            background-color: #40444b;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 13px;
+            display: inline-block;
+            margin-right: 5px;
+        }}
+        .attachment a:hover {{
+            background-color: #4f545c;
+            text-decoration: none;
+        }}
+        .embed-indicator {{
+            display: inline-block;
+            background-color: #40444b;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            color: #dcddde;
+            margin-top: 5px;
+        }}
+        .system-message {{
+            background-color: #40444b;
+            padding: 12px 15px;
+            border-radius: 5px;
+            color: #dcddde;
+            font-style: italic;
+            margin: 15px 0;
+            text-align: center;
+            border-left: 4px solid #5865f2;
+        }}
+        .footer {{
+            background-color: #202225;
+            padding: 15px 25px;
+            text-align: center;
+            color: #72767d;
+            font-size: 13px;
+            border-top: 2px solid #40444b;
+        }}
+        .footer img {{
+            vertical-align: middle;
+            margin-right: 5px;
+        }}
+        .badge {{
+            display: inline-block;
+            background-color: #40444b;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin-left: 8px;
+            color: #b9bbbe;
+        }}
+    </style>
+</head>
+<body>
+    <div class="transcript-container">
+        <div class="header">
+            <h1>🎫 Ticket Transcript</h1>
+            <p>📌 Channel: #{html.escape(channel.name)}</p>
+            <p>🔒 Ditutup oleh: {html.escape(closed_by.display_name)} (@{html.escape(closed_by.name)})</p>
+            <p>📅 Tanggal transcript: {datetime.now().strftime('%d %B %Y %H:%M:%S')}</p>
+            <p>💬 Total pesan: {len(messages)}</p>
+        </div>
+        
+        <div class="messages-area">
+"""
+
+    # 3. Tambahin setiap pesan ke template
+    for msg in messages:
+        # Tentukan badge khusus untuk staff/bot
+        badge = ""
+        if msg['is_bot']:
+            badge = '<span class="badge">BOT</span>'
+        elif msg['role'] == "staff":
+            badge = '<span class="badge">STAFF</span>'
+        
+        html_template += f"""
+            <div class="message {msg['role']}">
+                <img class="avatar" src="{msg['avatar']}" alt="Avatar" loading="lazy">
+                <div class="message-content">
+                    <div class="author-row">
+                        <span class="author">{msg['author']}</span>
+                        {badge}
+                        <span class="timestamp">{msg['timestamp']}</span>
+                    </div>
+                    <div class="content">{msg['content']}</div>
+                    {msg['attachments']}
+                    {msg['embeds']}
+                </div>
+            </div>"""
+    
+    # 4. Footer
+    html_template += f"""
+        </div>
+        
+        <div class="system-message">
+            ⚡ Transcript generated by Cellyn Store Bot
+        </div>
+        
+        <div class="footer">
+            <span>CELLYN STORE • {datetime.now().strftime('%d/%m/%Y %H:%M')}</span>
+        </div>
+    </div>
+</body>
+</html>"""
+    
+    # 5. Simpan ke file
+    os.makedirs("transcripts", exist_ok=True)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f"transcripts/ticket-{channel.name}-{timestamp}.html"
+    
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(html_template)
+    
+    return filename
 
 # ==================== BACKUP OTOMATIS ====================
 
