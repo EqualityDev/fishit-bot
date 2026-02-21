@@ -7,15 +7,14 @@ Bot Discord untuk toko jual Robux dengan sistem tiket, database permanen, dan ba
 
 ## 📋 Fitur
 
-- ✅ Katalog produk dengan tombol per kategori
-- ✅ Sistem tiket private (5 kategori: Beli/Tanya/Error/Komplain/Saran)
-- ✅ Database SQLite (data permanen, tidak hilang restart)
+- ✅ Katalog produk
+- ✅ Sistem tiket
+- ✅ Database SQLite
 - ✅ Backup otomatis setiap 6 jam
 - ✅ Export transaksi ke CSV
 - ✅ Blacklist user
 - ✅ Statistik penjualan
 - ✅ HTML transcript tiket
-- ✅ Command `/ping` untuk cek respon
 
 ## 🚀 Cara Install
 
@@ -38,7 +37,7 @@ python bot.py
 
 File .env:
 
-```env
+env
 DISCORD_TOKEN=your_token
 LOG_CHANNEL_ID=your_channel_id
 DANA_NUMBER=123456789
