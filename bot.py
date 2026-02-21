@@ -25,7 +25,7 @@ intents.members = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-STAFF_ROLE_NAME = "🔰 Admin Store"
+STAFF_ROLE_NAME = "Admin Store"
 DANA_NUMBER = "081266778093"
 BCA_NUMBER = "8565330655"
 RATE = 85
