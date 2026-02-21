@@ -453,7 +453,8 @@ async def generate_html_transcript(channel, closed_by):
     Generate HTML transcript dari channel ticket
     Hasil: file HTML dengan tampilan mirip Discord
     """
-    
+    import os
+    os.makedirs("transcripts", exist_ok=True)
     # 1. Kumpulin semua pesan (dari lama ke baru)
     messages = []
     async for msg in channel.history(limit=1000, oldest_first=True):
@@ -2025,16 +2026,32 @@ async def on_interaction(interaction: discord.Interaction):
         ticket = active_tickets[channel_id]
         ticket['status'] = 'CONFIRMED'
         ticket['admin_id'] = str(interaction.user.id)
-        invoice_num = await send_invoice(interaction.guild, {
-            'user_id': ticket['user_id'],
-            'items': ticket['items'],
-            'total_price': ticket['total_price'],
-            'payment_method': ticket.get('payment_method'),
-            'admin_id': str(interaction.user.id)
-        })
+    
+        # PINDAHKAN INVOICE_NUM KE LUAR AGAR BISA DIAKSES DI EXCEPT
+        invoice_num = None
+        try:
+            invoice_num = await send_invoice(interaction.guild, {
+                'user_id': ticket['user_id'],
+                'items': ticket['items'],
+                'total_price': ticket['total_price'],
+                'payment_method': ticket.get('payment_method'),
+                'admin_id': str(interaction.user.id)
+            })
+        except Exception as e:
+            print(f"❌ Error send_invoice: {e}")
+            invoice_num = "ERROR"
+    
         items_short = ", ".join([f"{i['qty']}x {i['name'][:15]}" for i in ticket['items'][:2]])
         if len(ticket['items']) > 2:
             items_short += f" +{len(ticket['items'])-2} lagi"
+    
+        # RESPONSE KE USER
+        await interaction.response.send_message(
+            f"✅ Pembayaran dikonfirmasi! Invoice: `{invoice_num}`\nTicket akan ditutup dalam 5 detik...", 
+            ephemeral=True
+        )
+    
+        # Kirim embed ke channel
         embed = discord.Embed(
             title="✅ PAYMENT CONFIRMED",
             description=f"**Items:** {items_short}\n**Total: Rp {ticket['total_price']:,}**\nInvoice: `{invoice_num}`\nTerima kasih!",
@@ -2042,8 +2059,42 @@ async def on_interaction(interaction: discord.Interaction):
         )
         embed.set_footer(text="CELLYN STORE")
         await interaction.channel.send(embed=embed)
-        await interaction.response.send_message("Ticket akan ditutup dalam 5 detik...", ephemeral=True)
-        import asyncio
+    
+        # ===== GENERATE HTML TRANSCRIPT =====
+        print("🔵 MULAI GENERATE TRANSCRIPT...")
+        try:
+            html_file = await generate_html_transcript(interaction.channel, interaction.user)
+            print(f"✅ TRANSCRIPT BERHASIL: {html_file}")
+        
+            # CARI LOG CHANNEL
+            log_channel = None
+        
+            if LOG_CHANNEL_ID:
+                log_channel = interaction.guild.get_channel(LOG_CHANNEL_ID)
+                print(f"🔵 COBA CHANNEL ID: {LOG_CHANNEL_ID} -> {log_channel}")
+        
+            if not log_channel:
+                log_channel = discord.utils.get(interaction.guild.channels, name="log-transaksi")
+                print(f"🔵 FALLBACK KE NAMA: log-transaksi -> {log_channel}")
+        
+            print(f"🔵 LOG CHANNEL FINAL: {log_channel}")
+        
+            if log_channel:
+                await log_channel.send(
+                    content=f"📁 **HTML Transcript**\nChannel: {interaction.channel.name}\nDitutup oleh: {interaction.user.mention}\nInvoice: `{invoice_num}`",
+                    file=discord.File(html_file)
+                )
+                print("✅ TRANSCRIPT TERKIRIM KE LOG")
+            else:
+                print("❌ LOG CHANNEL TIDAK DITEMUKAN")
+            
+        except Exception as e:
+            print(f"❌ ERROR DI TRANSCRIPT: {e}")
+            import traceback
+            traceback.print_exc()
+    # ===== SELESAI =====
+    
+    # TUNGGU 5 DETIK & HAPUS CHANNEL (PINDAHKAN KE LUAR TRY)
         await asyncio.sleep(5)
         if channel_id in active_tickets:
             del active_tickets[channel_id]
@@ -2104,6 +2155,16 @@ async def on_message(message):
                 staff_role = discord.utils.get(message.guild.roles, name=STAFF_ROLE_NAME)
                 if staff_role:
                     await message.channel.send(f"{staff_role.mention} Ada pembayaran baru!")
+    
+    # ===== AUTO REACTION (TAMBAHAN BARU) =====
+    # Auto react untuk channel tertentu (cuma admin)
+    if hasattr(bot, 'auto_react') and message.channel.id in bot.auto_react.enabled_channels:
+        staff_role = discord.utils.get(message.author.roles, name=STAFF_ROLE_NAME)
+        if staff_role:  # Hanya untuk admin
+            emoji_list = bot.auto_react.enabled_channels[message.channel.id]
+            bot.loop.create_task(bot.auto_react.add_reactions(message, emoji_list))
+    # =========================================
+    
     await bot.process_commands(message)
 
 @bot.event
@@ -2176,6 +2237,83 @@ async def send_item_buttons(channel, ticket):
         
     except Exception as e:
         print(f"❌ Error send_item_buttons: {e}")
+        
+# ==================== AUTO REACTION SYSTEM ====================
+import asyncio
+import random
+
+class AutoReact:
+    def __init__(self):
+        self.enabled_channels = {}
+        self.default_emojis = ["❤️", "🔥", "🚀", "👍", "⭐", "🎉", "👏", "💯"]
+    
+    async def add_reactions(self, message, emoji_list=None):
+        if not emoji_list:
+            emoji_list = self.default_emojis
+        
+        await asyncio.sleep(random.uniform(2, 5))
+        random.shuffle(emoji_list)
+        
+        for emoji in emoji_list[:8]:
+            try:
+                await message.add_reaction(emoji)
+                await asyncio.sleep(random.uniform(0.3, 0.8))
+            except:
+                continue
+
+# Tambahin auto_react ke bot
+bot.auto_react = AutoReact()
+
+@bot.tree.command(name="setreact", description="[ADMIN] Set auto-react di channel ini")
+@app_commands.describe(emojis="List emoji pisah spasi", disable="Matiin auto-react")
+async def set_react(interaction: discord.Interaction, emojis: str = None, disable: bool = False):
+    staff_role = discord.utils.get(interaction.user.roles, name=STAFF_ROLE_NAME)
+    if staff_role not in interaction.user.roles:
+        await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+        return
+    
+    channel_id = interaction.channel_id
+    
+    if disable:
+        if channel_id in bot.auto_react.enabled_channels:
+            del bot.auto_react.enabled_channels[channel_id]
+            await interaction.response.send_message(f"✅ Auto-react dimatikan di {interaction.channel.mention}")
+        else:
+            await interaction.response.send_message("❌ Auto-react gak aktif di sini", ephemeral=True)
+        return
+    
+    if not emojis:
+        if channel_id in bot.auto_react.enabled_channels:
+            emoji_list = bot.auto_react.enabled_channels[channel_id]
+            await interaction.response.send_message(f"📊 **Auto-react aktif**\nChannel: {interaction.channel.mention}\nEmoji: {' '.join(emoji_list)}")
+        else:
+            await interaction.response.send_message("❌ Auto-react tidak aktif. Gunakan `/setreact ❤️ 🔥 🚀`")
+        return
+    
+    emoji_list = emojis.split()[:8]
+    bot.auto_react.enabled_channels[channel_id] = emoji_list
+    
+    await interaction.response.send_message(f"✅ **Auto-react diaktifkan!**\nChannel: {interaction.channel.mention}\nEmoji: {' '.join(emoji_list)}")
+
+@bot.tree.command(name="reactlist", description="[ADMIN] Lihat daftar channel auto-react")
+async def react_list(interaction: discord.Interaction):
+    staff_role = discord.utils.get(interaction.user.roles, name=STAFF_ROLE_NAME)
+    if staff_role not in interaction.user.roles:
+        await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+        return
+    
+    if not bot.auto_react.enabled_channels:
+        await interaction.response.send_message("📝 Belum ada channel dengan auto-react")
+        return
+    
+    embed = discord.Embed(title="📊 AUTO-REACT ACTIVE CHANNELS", color=0x00ff00)
+    for ch_id, emojis in bot.auto_react.enabled_channels.items():
+        channel = interaction.guild.get_channel(ch_id)
+        ch_name = channel.mention if channel else f"Unknown ({ch_id})"
+        embed.add_field(name=ch_name, value=f"Emoji: {' '.join(emojis)}", inline=False)
+    
+    await interaction.response.send_message(embed=embed)
+# ==================== AKHIR AUTO REACTION ====================
 
 
 
