@@ -38,7 +38,6 @@ user_transaction_count = {}
 LOG_CHANNEL_ID = None
 logger = logging.getLogger(__name__)
 
-# ==================== DATABASE SEDERHANA ====================
 
 class SimpleDB:
     
@@ -51,7 +50,6 @@ class SimpleDB:
         conn = sqlite3.connect(self.db_name)
         c = conn.cursor()
         
-        # Tabel transaksi
         c.execute('''CREATE TABLE IF NOT EXISTS transactions
                      (id INTEGER PRIMARY KEY AUTOINCREMENT,
                       invoice TEXT,
@@ -61,14 +59,12 @@ class SimpleDB:
                       payment_method TEXT,
                       timestamp TEXT)''')
         
-        # Tabel products
         c.execute('''CREATE TABLE IF NOT EXISTS products
                      (id INTEGER PRIMARY KEY,
                       name TEXT,
                       price INTEGER,
                       category TEXT)''')
 
-        # Tabel blacklist
         c.execute('''CREATE TABLE IF NOT EXISTS blacklist
                      (user_id TEXT PRIMARY KEY,
                       reason TEXT,
@@ -245,8 +241,152 @@ class SimpleDB:
             print(f"❌ Error saving products: {e}")
             return False
 
+    # ===== TICKET DATABASE (PERMANEN) =====
+
+    def save_ticket(self, channel_id, user_id, items, total_price):
+        """Simpan tiket aktif ke database"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+        
+        # Buat tabel kalo belum ada
+            c.execute('''CREATE TABLE IF NOT EXISTS active_tickets (
+                channel_id TEXT PRIMARY KEY,
+                user_id TEXT,
+                items TEXT,
+                total_price INTEGER,
+                payment_method TEXT,
+                status TEXT DEFAULT 'OPEN',
+                created_at TEXT
+            )''')
+        
+        # Simpan tiket
+            c.execute('''INSERT OR REPLACE INTO active_tickets 
+                        (channel_id, user_id, items, total_price, status, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?)''',
+                     (channel_id, user_id, json.dumps(items), total_price, 'OPEN', datetime.now().isoformat()))
+        
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"❌ Error save ticket: {e}")
+            return False
+
+    def get_active_tickets(self):
+        """Ambil semua tiket aktif dari database"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+        
+            c.execute('SELECT * FROM active_tickets WHERE status = "OPEN"')
+            rows = c.fetchall()
+            conn.close()
+        
+            tickets = {}
+            for row in rows:
+                channel_id = row[0]
+                tickets[channel_id] = {
+                    'user_id': row[1],
+                    'items': json.loads(row[2]),
+                    'total_price': row[3],
+                    'payment_method': row[4],
+                    'status': row[5],
+                    'created_at': row[6]
+                }
+            return tickets
+        except Exception as e:
+            print(f"❌ Error get active tickets: {e}")
+            return {}
+
+    def update_ticket_status(self, channel_id, status, payment_method=None):
+        """Update status tiket"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+        
+            if payment_method:
+                c.execute('''UPDATE active_tickets 
+                            SET status = ?, payment_method = ? 
+                            WHERE channel_id = ?''',
+                         (status, payment_method, channel_id))
+            else:
+                c.execute('''UPDATE active_tickets 
+                            SET status = ? 
+                            WHERE channel_id = ?''',
+                         (status, channel_id))
+        
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"❌ Error update ticket: {e}")
+            return False
+
+    def delete_ticket(self, channel_id):
+        """Hapus tiket dari database (pas ditutup)"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+        
+            c.execute('DELETE FROM active_tickets WHERE channel_id = ?', (channel_id,))
+        
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"❌ Error delete ticket: {e}")
+            return False
+
+    def load_active_tickets_to_memory(self):
+        """Load semua tiket aktif ke memory (active_tickets)"""
+        return self.get_active_tickets()
+
+    def update_ticket_items(self, channel_id, items):
+        """Update items di tiket"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+        
+            c.execute('''UPDATE active_tickets 
+                        SET items = ? 
+                        WHERE channel_id = ?''',
+                     (json.dumps(items), channel_id))
+        
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"❌ Error update items: {e}")
+            return False
+
+    def update_ticket_total(self, channel_id, total_price):
+        """Update total price di tiket"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+        
+            c.execute('''UPDATE active_tickets 
+                        SET total_price = ? 
+                        WHERE channel_id = ?''',
+                     (total_price, channel_id))
+        
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"❌ Error update total: {e}")
+            return False
 # Init database
 db = SimpleDB()
+
+# Load tiket aktif dari database ke memory
+try:
+    active_tickets = db.load_active_tickets_to_memory()
+    print(f"✅ Loaded {len(active_tickets)} active tickets from database")
+except Exception as e:
+    print(f"❌ Error loading tickets: {e}")
+    active_tickets = {}
 # Poad product from json
 global PRODUCTS
 try:
@@ -1898,6 +2038,14 @@ async def on_interaction(interaction: discord.Interaction):
             'payment_method': None,
             'created_at': datetime.now()
         }
+        # Setelah channel tiket berhasil dibuat, simpan ke database
+        db.save_ticket(
+            channel_id=str(channel.id),
+            user_id=str(interaction.user.id),
+            items=ticket['items'],
+            total_price=ticket['total_price']
+        )
+        
         active_tickets[str(channel.id)] = ticket
         embed = discord.Embed(
             title="🧾 *SELAMAT DATANG DI STORE KAMI**",
@@ -1963,13 +2111,19 @@ async def on_interaction(interaction: discord.Interaction):
             if not (is_owner or is_admin):
                 await interaction.response.send_message("❌ Hanya pemilik tiket atau admin!", ephemeral=True)
                 return
-        
+            found = False
             for entry in ticket['items']:
                 if entry['id'] == item_id:
                     entry['qty'] += 1
+                    found = True
                     break
+            if found:
+                db.update_ticket_items(channel_id, ticket['items'])
+                db.update_ticket_total(channel_id, ticket['total_price'])
             else:
                 ticket['items'].append({"id": item_id, "qty": 1})
+                db.update_ticket_items(channel_id, ticket['items'])
+                db.update_ticket_total(channel_id, ticket['total_price'])
         
             ticket['total_price'] = calculate_total_from_ticket(ticket)
         
@@ -2016,7 +2170,12 @@ async def on_interaction(interaction: discord.Interaction):
 
     elif custom_id == "confirm_payment":
         channel_id = str(interaction.channel.id)
+        print(f"🔵 PAID clicked in channel: {channel_id}")
+        print(f"🔵 Active tickets: {list(active_tickets.keys())}")
+
         if channel_id not in active_tickets:
+            print(f"❌ ERROR: Channel {channel_id} not in active_tickets!")
+            print(f"✅ Active tickets: {list(active_tickets.keys())}")
             await interaction.response.send_message("Ticket tidak ditemukan!", ephemeral=True)
             return
         staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
@@ -2059,7 +2218,56 @@ async def on_interaction(interaction: discord.Interaction):
         )
         embed.set_footer(text="CELLYN STORE")
         await interaction.channel.send(embed=embed)
+        
+        # ===== KIRIM INVOICE VIA DM =====
+        try:
+            # Dapetin user object dari ID
+            buyer = await bot.fetch_user(int(ticket['user_id']))
     
+            if buyer:
+                # Buat embed invoice
+                dm_embed = discord.Embed(
+                    title="🧾 **INVOICE PEMBAYARAN**",
+                    description="Terima kasih telah berbelanja di **CELLYN STORE**!",
+                    color=0x00ff00
+                )
+                dm_embed.set_thumbnail(url="https://i.imgur.com/55K63yR.png")
+        
+                # Items
+                items_text = ""
+                for item in ticket['items']:
+                    items_text += f"{item['qty']}x {item['name']} = Rp {item['price'] * item['qty']:,}\n"
+        
+                dm_embed.add_field(name="📦 **ITEMS**", value=items_text, inline=False)
+                dm_embed.add_field(name="💰 **TOTAL**", value=f"Rp {ticket['total_price']:,}", inline=True)
+                dm_embed.add_field(name="💳 **METODE**", value=ticket.get('payment_method', '-'), inline=True)
+                dm_embed.add_field(name="📋 **INVOICE**", value=f"`{invoice_num}`", inline=False)
+        
+                kesan = (
+                    "👑 *Terima kasih telah menjadi bagian dari keluarga besar Cellyn Store!*\n"
+                    "✨ *Anda adalah pelanggan yang sangat berharga bagi kami.*\n"
+                    "🌟 *Tanpa dukungan anda, kami bukan apa-apa.*"
+                )
+                dm_embed.add_field(name="❤️ **DARI KAMI**", value=kesan, inline=False)
+        
+                dm_embed.add_field(
+                    name="🔍 **CEK TRANSAKSI**",
+                    value="Kamu bisa lihat history transaksi dengan command `/history`",
+                    inline=False
+                )
+        
+                dm_embed.set_footer(text="CELLYN STORE • Terima kasih!")
+                dm_embed.timestamp = datetime.now()
+        
+                # Kirim DM
+                await buyer.send(embed=dm_embed)
+                print(f"✅ Invoice DM terkirim ke {buyer.name}")
+        
+        except discord.Forbidden:
+            print(f"❌ Gagal kirim DM ke {ticket['user_id']} (DM dimatikan)")
+        except Exception as e:
+            print(f"❌ Gagal kirim DM: {e}")
+        
         # ===== GENERATE HTML TRANSCRIPT =====
         print("🔵 MULAI GENERATE TRANSCRIPT...")
         try:
@@ -2093,7 +2301,7 @@ async def on_interaction(interaction: discord.Interaction):
             import traceback
             traceback.print_exc()
     # ===== SELESAI =====
-    
+        db.update_ticket_status(channel_id, 'CLOSED', ticket.get('payment_method'))
     # TUNGGU 5 DETIK & HAPUS CHANNEL (PINDAHKAN KE LUAR TRY)
         await asyncio.sleep(5)
         if channel_id in active_tickets:
@@ -2128,6 +2336,8 @@ async def on_message(message):
                 method = methods[int(message.content) - 1]
                 ticket['payment_method'] = method
                 total = ticket['total_price']
+                db.update_ticket_status(str(message.channel.id), 'OPEN', method)
+                
                 if method == 'QRIS':
                     await message.channel.send("Gunakan /qris untuk melihat QR code")
                 elif method == 'DANA':
@@ -2178,6 +2388,14 @@ async def on_ready():
 
     # Delay biar koneksi stabil
     await asyncio.sleep(2)
+
+    # Load tiket aktif dari database ke memory
+    try:
+        active_tickets = db.load_active_tickets_to_memory()
+        print(f"✅ Loaded {len(active_tickets)} active tickets from database")
+    except Exception as e:
+        print(f"❌ Error loading tickets: {e}")
+        active_tickets = {}
 
     # Sync commands
     try:
