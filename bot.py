@@ -944,6 +944,86 @@ async def ping(interaction: discord.Interaction):
         content=f"🏓 **Pong!**\n📡 Latensi: {latency}ms\n🌐 WebSocket: {ws_latency}ms"
     )
 
+@bot.tree.command(name="reboot", description="[ADMIN] Restart bot (redeploy)")
+async def reboot_bot(interaction: discord.Interaction):
+    # Cek admin
+    staff_role = discord.utils.get(interaction.user.roles, name=STAFF_ROLE_NAME)
+    if staff_role not in interaction.user.roles:
+        await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+        return
+    
+    await interaction.response.send_message("🔄 **Bot sedang direstart...**\nAkan online kembali dalam beberapa detik.")
+    
+    log_channel = await get_log_channel(interaction.guild)
+    if log_channel:
+        await log_channel.send(f"🔄 **Bot direstart** oleh {interaction.user.mention}")
+    
+    # Tutup koneksi database
+    
+    # Restart bot dengan proses baru
+    import sys, os
+    print("🔄 Bot restart dimulai...")
+    await bot.close()  # Tutup koneksi Discord
+    os.execl(sys.executable, sys.executable, *sys.argv)  # Ganti proses
+
+@bot.tree.command(name="restore", description="[ADMIN] Restore database dari backup")
+@app_commands.describe(backup_file="Nama file backup (lihat di /listbackup)")
+async def restore_backup(interaction: discord.Interaction, backup_file: str):
+    # Cek admin
+    staff_role = discord.utils.get(interaction.user.roles, name=STAFF_ROLE_NAME)
+    if staff_role not in interaction.user.roles:
+        await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+        return
+    
+    # Cek apakah file backup ada
+    backup_path = f"backups/{backup_file}"
+    if not os.path.exists(backup_path):
+        await interaction.response.send_message(
+            f"❌ File `{backup_file}` tidak ditemukan!\n"
+            f"Cek daftar backup dengan `/listbackup`",
+            ephemeral=True
+        )
+        return
+    
+    await interaction.response.defer(ephemeral=True)
+    
+    try:
+        # Backup dulu sebelum restore (jaga-jaga)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        pre_restore = f"backups/pre_restore_{timestamp}.db"
+        shutil.copy2("store.db", pre_restore)
+        
+        # Lakukan restore
+        shutil.copy2(backup_path, "store.db")
+        
+        # Hitung ukuran
+        size = os.path.getsize("store.db") / (1024 * 1024)
+        
+        embed = discord.Embed(
+            title="✅ **RESTORE BERHASIL**",
+            description=f"Database berhasil direstore dari `{backup_file}`",
+            color=0x00ff00
+        )
+        embed.add_field(name="📊 Ukuran", value=f"{size:.2f} MB", inline=True)
+        embed.add_field(name="💾 Backup sebelum restore", value=f"`pre_restore_{timestamp}.db`", inline=True)
+        
+        await interaction.followup.send(embed=embed)
+        
+        # Kirim ke channel log
+        log_channel = await get_log_channel(interaction.guild)
+        if log_channel:
+            await log_channel.send(
+                f"🔄 **Database direstore** oleh {interaction.user.mention}\n"
+                f"Dari: `{backup_file}`\n"
+                f"Backup sebelum: `pre_restore_{timestamp}.db`"
+            )
+        
+        # Saran restart
+        await interaction.followup.send("⚠️ **Disarankan restart bot** agar perubahan diterapkan.")
+        
+    except Exception as e:
+        await interaction.followup.send(f"❌ Gagal restore: {str(e)[:100]}")
+
 @bot.tree.command(name="refreshcache", description="🔄 Refresh produk cache (Admin only)")
 async def refresh_cache(interaction: discord.Interaction):
     staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
@@ -2382,11 +2462,11 @@ async def on_interaction(interaction: discord.Interaction):
                 dm_embed.add_field(name="📋 **INVOICE**", value=f"`{invoice_num}`", inline=False)
         
                 kesan = (
-                    "👑 *Terima kasih telah menjadi bagian dari keluarga besar Cellyn Store!*\n"
-                    "✨ *Anda adalah pelanggan yang sangat berharga bagi kami.*\n"
-                    "🌟 *Tanpa dukungan anda, kami bukan apa-apa.*"
+                    "*Terima kasih telah menjadi bagian dari keluarga besar Cellyn Store!*\n"
+                    "*Anda adalah pelanggan yang sangat berharga bagi kami.*\n"
+                    "*Tanpa dukungan anda, kami bukan apa-apa.*"
                 )
-                dm_embed.add_field(name="❤️ **DARI KAMI**", value=kesan, inline=False)
+                dm_embed.add_field(name="*Catatan*", value=kesan, inline=False)
         
                 dm_embed.add_field(
                     name="🔍 **CEK TRANSAKSI**",
@@ -2407,7 +2487,7 @@ async def on_interaction(interaction: discord.Interaction):
             print(f"❌ Gagal kirim DM: {e}")
         
         # ===== GENERATE HTML TRANSCRIPT =====
-        print("🔵 MULAI GENERATE TRANSCRIPT...")
+        print("MULAI GENERATE TRANSCRIPT...")
         try:
             html_file = await generate_html_transcript(interaction.channel, interaction.user)
             print(f"✅ TRANSCRIPT BERHASIL: {html_file}")
@@ -2417,13 +2497,13 @@ async def on_interaction(interaction: discord.Interaction):
         
             if LOG_CHANNEL_ID:
                 log_channel = interaction.guild.get_channel(LOG_CHANNEL_ID)
-                print(f"🔵 COBA CHANNEL ID: {LOG_CHANNEL_ID} -> {log_channel}")
+                print(f"COBA CHANNEL ID: {LOG_CHANNEL_ID} -> {log_channel}")
         
             if not log_channel:
                 log_channel = discord.utils.get(interaction.guild.channels, name="log-transaksi")
-                print(f"🔵 FALLBACK KE NAMA: log-transaksi -> {log_channel}")
+                print(f"FALLBACK KE NAMA: log-transaksi -> {log_channel}")
         
-            print(f"🔵 LOG CHANNEL FINAL: {log_channel}")
+            print(f"LOG CHANNEL FINAL: {log_channel}")
         
             if log_channel:
                 await log_channel.send(
@@ -2711,7 +2791,7 @@ async def update_member_count(guild):
             for dup_channel in existing_channels[1:]:
                 try:
                     await dup_channel.delete()
-                    print(f"🗑️ Deleted duplicate member count channel: {dup_channel.name}")
+                    print(f"Deleted duplicate member count channel: {dup_channel.name}")
                 except:
                     pass
         else:
@@ -2722,7 +2802,7 @@ async def update_member_count(guild):
             )
             
     except Exception as e:
-        print(f"❌ Error updating member count in {guild.name}: {e}")
+        print(f"Error updating member count in {guild.name}: {e}")
 
 async def update_all_member_counts():
     """Update member count di semua guild"""
