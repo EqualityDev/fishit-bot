@@ -2026,6 +2026,28 @@ async def add_item_to_ticket(interaction: discord.Interaction, item_id: int, qty
     embed.add_field(name="💰 TOTAL", value=f"Rp {ticket['total_price']:,}", inline=False)
     await interaction.response.send_message(embed=embed)
 
+@bot.tree.command(name="cleanupstats", description="[ADMIN] Bersihin voice channel stats duplikat")
+async def cleanup_stats_channels(interaction: discord.Interaction):
+    # Cek admin
+    staff_role = discord.utils.get(interaction.user.roles, name=STAFF_ROLE_NAME)
+    if staff_role not in interaction.user.roles:
+        await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+        return
+    
+    await interaction.response.defer(ephemeral=True)
+    
+    deleted = 0
+    for channel in interaction.guild.voice_channels:
+        if channel.name.startswith("Member:"):
+            pass
+    
+    for channel in interaction.guild.voice_channels:
+        if channel.name.startswith("Member:"):
+            await channel.delete()
+            deleted += 1
+    
+    await interaction.followup.send(f"✅ {deleted} channel stats telah dibersihkan. Channel baru akan dibuat otomatis.")
+
 @bot.tree.command(name="removeitem", description="➖ Hapus item dari tiket ini")
 @app_commands.describe(item_id="ID item", qty="Jumlah yang dihapus (default semua)")
 async def remove_item_from_ticket(interaction: discord.Interaction, item_id: int, qty: int = None):
@@ -2662,7 +2684,7 @@ async def react_list(interaction: discord.Interaction):
 # ==================== VOICE CHANNEL STATS ====================
 
 async def update_member_count(guild):
-    """Update voice channel dengan jumlah member terkini"""
+    """Update voice channel dengan jumlah member terkini (CEK DUPLIKASI)"""
     try:
         # Cari atau buat kategori stats
         category = discord.utils.get(guild.categories, name="📊 SERVER STATS")
@@ -2672,15 +2694,27 @@ async def update_member_count(guild):
         # Nama channel yang diinginkan
         channel_name = f"Member: {guild.member_count}"
         
-        # Cari channel yang udah ada
-        channel = discord.utils.get(guild.voice_channels, name__startswith="👥 Member:")
+        # ===== CEK CHANNEL YANG UDAH ADA =====
+        # Cari semua channel dengan awalan "👥 Member:"
+        existing_channels = []
+        for channel in guild.voice_channels:
+            if channel.name.startswith("Member:"):
+                existing_channels.append(channel)
         
-        if channel:
-            # Update nama channel kalo beda
-            if channel.name != channel_name:
-                await channel.edit(name=channel_name)
+        if existing_channels:
+            # Kalo ada channel yang udah ada, update yang pertama
+            main_channel = existing_channels[0]
+            if main_channel.name != channel_name:
+                await main_channel.edit(name=channel_name)
+            
+            # Hapus channel duplikat lainnya
+            for dup_channel in existing_channels[1:]:
+                try:
+                    await dup_channel.delete()
+                    print(f"🗑️ Deleted duplicate member count channel: {dup_channel.name}")
+                except:
+                    pass
         else:
-            # Buat channel baru
             await guild.create_voice_channel(
                 name=channel_name,
                 category=category,
