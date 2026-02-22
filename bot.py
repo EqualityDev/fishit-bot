@@ -38,7 +38,6 @@ user_transaction_count = {}
 LOG_CHANNEL_ID = None
 logger = logging.getLogger(__name__)
 
-# ==================== ERROR HANDLING UTILITY ====================
 
 async def handle_error(interaction_or_ctx, error, title="❌ Error", ephemeral=True):
     """Handle error dengan konsisten"""
@@ -46,7 +45,6 @@ async def handle_error(interaction_or_ctx, error, title="❌ Error", ephemeral=T
     print(f"❌ Error: {error_msg}")
     print(f"📍 Location: {error.__traceback__.tb_frame.f_code.co_name}")
     
-    # Coba kirim ke user
     try:
         if hasattr(interaction_or_ctx, 'response') and not interaction_or_ctx.response.is_done():
             await interaction_or_ctx.response.send_message(
@@ -63,20 +61,18 @@ async def handle_error(interaction_or_ctx, error, title="❌ Error", ephemeral=T
                 f"{title}\n```\n{error_msg[:1500]}\n```"
             )
     except:
-        pass  # Gagal kirim pesan, minimal sudah tercetak di log
+        pass
 
 def log_error(error, context=""):
     """Log error ke console dengan format konsisten"""
     import traceback
     print(f"❌ ERROR [{context}]: {error}")
     print("".join(traceback.format_tb(error.__traceback__)))
-#===============================
     
 class SimpleDB:
     
     def __init__(self, db_name="store.db"):
         self.db_name = db_name
-        # Init db async akan dipanggil terpisah
     
     async def init_db(self):
         """Buat tabel kalo belum ada (async)"""
@@ -102,7 +98,7 @@ class SimpleDB:
                           timestamp TEXT)''')
             
             await db.commit()
-        print("✅ Database siap (async)")
+        print("✓ Database siap (async)")
     
     async def save_transaction(self, trans_data):
         """Simpan transaksi ke database (async)"""
@@ -236,13 +232,12 @@ class SimpleDB:
                     ''', (p['id'], p['name'], p['price'], p['category']))
                 
                 await db.commit()
-            print(f"✅ Saved {len(products)} products to database")
+            print(f"✓ Saved {len(products)} products to database")
             return True
         except Exception as e:
             print(f"❌ Error saving products: {e}")
             return False
 
-    # ===== TICKET DATABASE (PERMANEN) =====
 
     async def save_ticket(self, channel_id, user_id, items, total_price):
         """Simpan tiket aktif ke database (async)"""
@@ -372,18 +367,17 @@ class SimpleDB:
                     'price': row['price'],
                     'category': row['category']
                 })
-            print(f"✅ Loaded {len(products)} products from database")
+            print(f"✓ Loaded {len(products)} products from database")
             return products
         except Exception as e:
             print(f"❌ Error load products: {e}")
             return []
-# ==================== PRODUCTS CACHE ====================
 
 class ProductsCache:
     def __init__(self):
         self.data = []
         self.last_update = None
-        self.cache_duration = 300  # 5 menit (dalam detik)
+        self.cache_duration = 300  
     
     def is_expired(self):
         """Cek apakah cache sudah expired"""
@@ -395,7 +389,7 @@ class ProductsCache:
         """Load produk dari database"""
         self.data = await db.load_products()
         self.last_update = datetime.now()
-        print(f"📦 Cache refreshed: {len(self.data)} products")
+        print(f"✓ Cache refreshed: {len(self.data)} products")
         return self.data
     
     async def get_products(self, force_refresh=False):
@@ -413,25 +407,23 @@ class ProductsCache:
         self.last_update = None
         print("📦 Cache invalidated")
 
-# Inisialisasi cache
 products_cache = ProductsCache()
-# Init database
+
 db = SimpleDB()
 
 active_tickets = {}
-# Poad product from json
+
 global PRODUCTS
 try:
     with open('products.json', 'r') as f:
         PRODUCTS = json.load(f)
-    print(f"✅ Load {len(PRODUCTS)} products from products.json")
+    print(f"✓ Load {len(PRODUCTS)} products from products.json")
     
-    # Simpan ke database biar kedepannya aman
+
 except Exception as e:
     print(f"❌ Gagal load products.json: {e}")
     PRODUCTS = []
-# ===== BROADCAST COOLDOWN =====
-# Load cooldown dari file (agar permanen walau bot restart)
+
 try:
     with open('broadcast_cooldown.json', 'r') as f:
         broadcast_cooldown = json.load(f)
@@ -469,7 +461,7 @@ def load_products():
     try:
         with open('products.json', 'r') as f:
             PRODUCTS = json.load(f)
-        print("✅ Products loaded from products.json")
+        print("✓ Products loaded from products.json")
     except FileNotFoundError:
         print("📝 products.json not found, using default PRODUCTS")
         save_products()
@@ -477,7 +469,6 @@ def load_products():
 async def get_log_channel(guild):
     global LOG_CHANNEL_ID
     
-    # 🔴 BACA ID DARI ENV (kalo ada)
     if LOG_CHANNEL_ID is None:
         LOG_CHANNEL_ID = os.getenv('LOG_CHANNEL_ID')
         if LOG_CHANNEL_ID:
@@ -486,7 +477,6 @@ async def get_log_channel(guild):
             except:
                 LOG_CHANNEL_ID = None
     
-    # 🔴 PAKSA PAKE ID
     if LOG_CHANNEL_ID:
         channel = guild.get_channel(LOG_CHANNEL_ID)
         if channel and isinstance(channel, discord.TextChannel):
@@ -495,11 +485,9 @@ async def get_log_channel(guild):
             print(f"⚠️ Channel {LOG_CHANNEL_ID} tidak ditemukan, cari channel dengan nama 'log-transaksi'...")
             LOG_CHANNEL_ID = None
     
-    # Fallback: cari channel dengan nama
     channel = discord.utils.get(guild.channels, name="log-transaksi")
     
     if not channel:
-        # BUAT CHANNEL BARU (kalo bener2 ga ada)
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(read_messages=True, send_messages=False),
             guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
@@ -519,10 +507,8 @@ async def get_log_channel(guild):
         embed.set_footer(text="CELLYN STORE")
         await channel.send(embed=embed)
         
-        # Simpan ID channel baru
         LOG_CHANNEL_ID = channel.id
         
-        # Update file .env (opsional, biar permanen)
         update_env_file(f"LOG_CHANNEL_ID={channel.id}")
     
     return channel
@@ -627,41 +613,32 @@ async def generate_html_transcript(channel, closed_by):
     """
     import os
     os.makedirs("transcripts", exist_ok=True)
-    # 1. Kumpulin semua pesan (dari lama ke baru)
     messages = []
     async for msg in channel.history(limit=1000, oldest_first=True):
-        # Format waktu
         timestamp = msg.created_at.strftime("%H:%M %d/%m/%Y")
         
-        # Escape konten biar aman di HTML
         content = html.escape(msg.content) if msg.content else ""
         
-        # Handle attachment
         attachments = ""
         if msg.attachments:
             for att in msg.attachments:
                 attachments += f'<br>📎 <a href="{att.url}" target="_blank">{html.escape(att.filename)}</a>'
         
-        # Handle embed (sederhana)
         embeds = ""
         if msg.embeds:
             embeds = "<br>📦 [Embed]"
         
-        # Tentukan role (staff/bot/user)
         role_class = "user"
         if msg.author.bot:
             role_class = "bot"
         else:
-            # Cek apakah dia staff (pake STAFF_ROLE_NAME dari config)
             staff_role = discord.utils.get(msg.author.roles, name=STAFF_ROLE_NAME)
             if staff_role:
                 role_class = "staff"
         
-        # Avatar URL
         if msg.author.avatar:
             avatar_url = msg.author.avatar.url
         else:
-            # Default avatar Discord
             avatar_url = f"https://cdn.discordapp.com/embed/avatars/{int(msg.author.id) % 5}.png"
         
         messages.append({
@@ -676,7 +653,6 @@ async def generate_html_transcript(channel, closed_by):
             'is_bot': msg.author.bot
         })
     
-    # 2. Template HTML (bawaan, gak perlu file terpisah)
     html_template = f"""<!DOCTYPE html>
 <html lang="id">
 <head>
@@ -840,9 +816,8 @@ async def generate_html_transcript(channel, closed_by):
         <div class="messages-area">
 """
 
-    # 3. Tambahin setiap pesan ke template
     for msg in messages:
-        # Tentukan badge khusus untuk staff/bot
+
         badge = ""
         if msg['is_bot']:
             badge = '<span class="badge">BOT</span>'
@@ -864,7 +839,6 @@ async def generate_html_transcript(channel, closed_by):
                 </div>
             </div>"""
     
-    # 4. Footer
     html_template += f"""
         </div>
         
@@ -879,7 +853,6 @@ async def generate_html_transcript(channel, closed_by):
 </body>
 </html>"""
     
-    # 5. Simpan ke file
     os.makedirs("transcripts", exist_ok=True)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     filename = f"transcripts/ticket-{channel.name}-{timestamp}.html"
@@ -889,7 +862,6 @@ async def generate_html_transcript(channel, closed_by):
     
     return filename
 
-# ==================== BACKUP OTOMATIS ====================
 
 async def auto_backup():
     """Backup database otomatis setiap 6 jam"""
@@ -897,17 +869,13 @@ async def auto_backup():
         await asyncio.sleep(21600)  # 6 jam = 21600 detik
         
         try:
-            # Bikin folder backups kalo belum ada
             os.makedirs("backups", exist_ok=True)
             
-            # Format nama file
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             backup_name = f"backups/store_backup_{timestamp}.db"
             
-            # Copy file database
             shutil.copy2("store.db", backup_name)
             
-            # Hapus backup lama (lebih dari 7 hari)
             cleanup_old_backups()
             
             logger.info(f"✅ Auto backup berhasil: {backup_name}")
@@ -946,7 +914,7 @@ async def ping(interaction: discord.Interaction):
 
 @bot.tree.command(name="reboot", description="[ADMIN] Restart bot (redeploy)")
 async def reboot_bot(interaction: discord.Interaction):
-    # Cek admin
+    
     staff_role = discord.utils.get(interaction.user.roles, name=STAFF_ROLE_NAME)
     if staff_role not in interaction.user.roles:
         await interaction.response.send_message("❌ Admin only!", ephemeral=True)
@@ -958,24 +926,21 @@ async def reboot_bot(interaction: discord.Interaction):
     if log_channel:
         await log_channel.send(f"🔄 **Bot direstart** oleh {interaction.user.mention}")
     
-    # Tutup koneksi database
     
-    # Restart bot dengan proses baru
     import sys, os
     print("🔄 Bot restart dimulai...")
-    await bot.close()  # Tutup koneksi Discord
-    os.execl(sys.executable, sys.executable, *sys.argv)  # Ganti proses
+    await bot.close()  
+    os.execl(sys.executable, sys.executable, *sys.argv)  
 
 @bot.tree.command(name="restore", description="[ADMIN] Restore database dari backup")
 @app_commands.describe(backup_file="Nama file backup (lihat di /listbackup)")
 async def restore_backup(interaction: discord.Interaction, backup_file: str):
-    # Cek admin
+
     staff_role = discord.utils.get(interaction.user.roles, name=STAFF_ROLE_NAME)
     if staff_role not in interaction.user.roles:
         await interaction.response.send_message("❌ Admin only!", ephemeral=True)
         return
     
-    # Cek apakah file backup ada
     backup_path = f"backups/{backup_file}"
     if not os.path.exists(backup_path):
         await interaction.response.send_message(
@@ -988,15 +953,12 @@ async def restore_backup(interaction: discord.Interaction, backup_file: str):
     await interaction.response.defer(ephemeral=True)
     
     try:
-        # Backup dulu sebelum restore (jaga-jaga)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         pre_restore = f"backups/pre_restore_{timestamp}.db"
         shutil.copy2("store.db", pre_restore)
         
-        # Lakukan restore
         shutil.copy2(backup_path, "store.db")
         
-        # Hitung ukuran
         size = os.path.getsize("store.db") / (1024 * 1024)
         
         embed = discord.Embed(
@@ -1009,7 +971,6 @@ async def restore_backup(interaction: discord.Interaction, backup_file: str):
         
         await interaction.followup.send(embed=embed)
         
-        # Kirim ke channel log
         log_channel = await get_log_channel(interaction.guild)
         if log_channel:
             await log_channel.send(
@@ -1018,7 +979,6 @@ async def restore_backup(interaction: discord.Interaction, backup_file: str):
                 f"Backup sebelum: `pre_restore_{timestamp}.db`"
             )
         
-        # Saran restart
         await interaction.followup.send("⚠️ **Disarankan restart bot** agar perubahan diterapkan.")
         
     except Exception as e:
@@ -1036,7 +996,7 @@ async def refresh_cache(interaction: discord.Interaction):
 
 @bot.tree.command(name="listbackup", description="[ADMIN] Lihat daftar backup")
 async def list_backups(interaction: discord.Interaction):
-    # Cek admin
+
     staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
     if staff_role not in interaction.user.roles:
         await interaction.response.send_message("❌ Admin only!", ephemeral=True)
@@ -1062,7 +1022,7 @@ async def list_backups(interaction: discord.Interaction):
 
 @bot.tree.command(name="statdetail", description="[ADMIN] Statistik detail penjualan")
 async def stats_detail(interaction: discord.Interaction):
-    # Cek admin
+
     staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
     if staff_role not in interaction.user.roles:
         await interaction.response.send_message("❌ Admin only!", ephemeral=True)
@@ -1070,20 +1030,18 @@ async def stats_detail(interaction: discord.Interaction):
     
     all_trans = await db.get_all_transactions() + transactions
     
-    # Filter transaksi real (bukan fake)
+
     real_trans = [t for t in all_trans if not t.get('fake')]
     
     if not real_trans:
         await interaction.response.send_message("📝 Belum ada transaksi real.")
         return
     
-    # Hitung berbagai statistik
     total_real = len(real_trans)
     total_fake = len(all_trans) - total_real
     total_omset = sum(t['total_price'] for t in real_trans)
     avg_transaksi = total_omset / total_real if total_real else 0
     
-    # Transaksi per metode
     metode = {}
     for t in real_trans:
         m = t.get('payment_method', 'Unknown')
@@ -1091,7 +1049,6 @@ async def stats_detail(interaction: discord.Interaction):
     
     metode_str = "\n".join([f"  {m}: {c}x" for m, c in metode.items()])
     
-    # Rata-rata per hari
     first_date = min(datetime.fromisoformat(t['timestamp']) for t in real_trans)
     days_active = max(1, (datetime.now() - first_date).days)
     avg_daily = total_omset / days_active
@@ -1113,25 +1070,23 @@ async def stats_detail(interaction: discord.Interaction):
 
 @bot.tree.command(name="resetdb", description="[ADMIN] Reset database (hapus semua transaksi)")
 async def reset_database(interaction: discord.Interaction):
-    # Cek admin
+
     staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
     if staff_role not in interaction.user.roles:
         await interaction.response.send_message("❌ Admin only!", ephemeral=True)
         return
     
-    # Konfirmasi dulu
     view = discord.ui.View()
     confirm = discord.ui.Button(label="✅ YA, Reset!", style=discord.ButtonStyle.danger)
     cancel = discord.ui.Button(label="❌ Batal", style=discord.ButtonStyle.secondary)
     
     async def confirm_callback(interaction):
-        # Backup dulu sebelum reset
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_name = f"backups/pre_reset_backup_{timestamp}.db"
         os.makedirs("backups", exist_ok=True)
         shutil.copy2("store.db", backup_name)
         
-        # Reset database
         os.remove("store.db")
         db = SimpleDB()  # Init ulang
         
@@ -1165,7 +1120,7 @@ async def export_transactions(
     filter_days: int = None
     ):
     """Export data transaksi ke CSV"""
-    # Cek admin
+
     staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
     if staff_role not in interaction.user.roles:
         await interaction.response.send_message("❌ Admin only!", ephemeral=True)
@@ -1174,18 +1129,14 @@ async def export_transactions(
     await interaction.response.defer(ephemeral=True)  # Biar gak timeout
     
     try:
-        # Ambil semua transaksi dari database
         all_trans = await db.get_all_transactions()
         
-        # Gabung dengan transaksi di memory
         all_trans = all_trans + transactions
         
-        # Filter berdasarkan user
         if filter_user:
             user_id = str(filter_user.id)
             all_trans = [t for t in all_trans if t['user_id'] == user_id]
         
-        # Filter berdasarkan hari
         if filter_days:
             cutoff = datetime.now() - timedelta(days=filter_days)
             all_trans = [t for t in all_trans 
@@ -1195,11 +1146,9 @@ async def export_transactions(
             await interaction.followup.send("📝 Tidak ada data transaksi.", ephemeral=True)
             return
         
-        # Bikin file CSV di memory
         output = io.StringIO()
         writer = csv.writer(output)
         
-        # Header
         writer.writerow([
             'Invoice', 
             'User ID', 
@@ -1212,9 +1161,7 @@ async def export_transactions(
             'Admin'
         ])
         
-        # Data
         for t in all_trans:
-            # Cari username
             username = "Unknown"
             try:
                 user = await bot.fetch_user(int(t['user_id']))
@@ -1222,7 +1169,6 @@ async def export_transactions(
             except:
                 pass
             
-            # Format items (dipendekin biar gak terlalu panjang)
             if isinstance(t['items'], str):
                 items = json.loads(t['items'])
             else:
@@ -1234,21 +1180,18 @@ async def export_transactions(
                 t['invoice'],
                 t['user_id'],
                 username,
-                items_str[:100],  # potong kalo kepanjangan
+                items_str[:100],  
                 t['total_price'],
                 t.get('payment_method', '-'),
-                t['timestamp'][:19],  # ambil YYYY-MM-DD HH:MM:SS aja
+                t['timestamp'][:19],  
                 'Ya' if t.get('fake') else 'Tidak',
                 t.get('admin_id', '-')
             ])
         
-        # Siapkan file untuk dikirim
         output.seek(0)
         
-        # Nama file
         filename = f"transactions_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
         
-        # Kirim file
         await interaction.followup.send(
             content=f"📊 **Export data transaksi**\n"
                     f"Total: {len(all_trans)} transaksi\n"
@@ -1268,24 +1211,20 @@ async def export_transactions(
 @bot.tree.command(name="backup", description="[ADMIN] Backup database manual")
 async def manual_backup(interaction: discord.Interaction):
     """Backup database secara manual"""
-    # Cek admin
+
     staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
     if staff_role not in interaction.user.roles:
         await interaction.response.send_message("❌ Admin only!", ephemeral=True)
         return
     
     try:
-        # Bikin folder backups
         os.makedirs("backups", exist_ok=True)
         
-        # Format nama file
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_name = f"backups/manual_backup_{timestamp}.db"
         
-        # Copy database
         shutil.copy2("store.db", backup_name)
         
-        # Hitung ukuran file
         size = os.path.getsize(backup_name) / 1024  # KB
         
         await interaction.response.send_message(
@@ -1302,10 +1241,8 @@ async def manual_backup(interaction: discord.Interaction):
 async def history(interaction: discord.Interaction):
     user_id = str(interaction.user.id)
     
-    # Ambil dari database dulu (5 transaksi terakhir)
     user_transactions = await db.get_user_transactions(user_id, limit=5)
     
-    # Kalau dari database kosong, ambil dari list lama
     if not user_transactions:
         user_transactions = [t for t in transactions if t['user_id'] == user_id][-5:]
     
@@ -1313,7 +1250,6 @@ async def history(interaction: discord.Interaction):
         await interaction.response.send_message("Belum ada transaksi.", ephemeral=True)
         return
     
-    # Hitung total semua transaksi user
     all_user = await db.get_user_transactions(user_id, limit=1000)
     total_trans = len(all_user) if all_user else len([t for t in transactions if t['user_id'] == user_id])
     
@@ -1325,7 +1261,7 @@ async def history(interaction: discord.Interaction):
     )
     
     for t in reversed(last_5):
-        # Parse timestamp
+
         if isinstance(t['timestamp'], str):
             try:
                 timestamp = datetime.fromisoformat(t['timestamp'])
@@ -1336,7 +1272,6 @@ async def history(interaction: discord.Interaction):
         
         date_str = timestamp.strftime("%d/%m/%Y %H:%M")
         
-        # Handle items (bisa string JSON atau list)
         if isinstance(t['items'], str):
             items = json.loads(t['items'])
         else:
@@ -1365,10 +1300,8 @@ async def all_history(interaction: discord.Interaction, user: discord.User):
     
     user_id = str(user.id)
     
-    # Ambil SEMUA transaksi dari database
     all_trans = await db.get_user_transactions(user_id, limit=1000)  # ambil semua
     
-    # Kalo kosong, coba dari list lama
     if not all_trans:
         all_trans = [t for t in transactions if t['user_id'] == user_id]
     
@@ -1376,20 +1309,16 @@ async def all_history(interaction: discord.Interaction, user: discord.User):
         await interaction.response.send_message(f"📝 {user.mention} belum punya transaksi.", ephemeral=True)
         return
     
-    # Hitung total
     total_trans = len(all_trans)
     total_spent = sum(t['total_price'] for t in all_trans)
     
-    # Buat embed
     embed = discord.Embed(
         title=f"📋 SEMUA TRANSAKSI {user.name}",
         description=f"Total: **{total_trans}** transaksi | Total belanja: **Rp {total_spent:,}**",
         color=0x3498db
     )
     
-    # Tampilin 10 terakhir (biar gak kepanjangan)
     for t in all_trans[-10:]:
-        # Parse timestamp
         if isinstance(t['timestamp'], str):
             try:
                 timestamp = datetime.fromisoformat(t['timestamp'])
@@ -1400,13 +1329,11 @@ async def all_history(interaction: discord.Interaction, user: discord.User):
         
         date_str = timestamp.strftime("%d/%m/%Y %H:%M")
         
-        # Parse items
         if isinstance(t['items'], str):
             items = json.loads(t['items'])
         else:
             items = t['items']
         
-        # Ringkas items
         items_short = ", ".join([f"{i['qty']}x {i['name'][:15]}" for i in items[:2]])
         if len(items) > 2:
             items_short += f" +{len(items)-2} lagi"
@@ -1429,10 +1356,8 @@ async def stats(interaction: discord.Interaction):
         await interaction.response.send_message("Admin only!", ephemeral=True)
         return
     
-    # ===== GABUNG DATA DARI DATABASE + MEMORY =====
     db_transactions = await db.get_all_transactions()
     all_transactions = await db_transactions + transactions  # Gabung database + list lama
-    # ===============================================
     
     today = datetime.now().date()
     week_ago = today - timedelta(days=7)
@@ -1444,7 +1369,6 @@ async def stats(interaction: discord.Interaction):
     
     for t in all_transactions:
         try:
-            # Handle timestamp (bisa string atau datetime)
             if isinstance(t['timestamp'], str):
                 t_date = datetime.fromisoformat(t['timestamp']).date()
             else:
@@ -1501,10 +1425,8 @@ async def blacklist_user(interaction: discord.Interaction, user: discord.User, r
         await interaction.response.send_message("Admin only!", ephemeral=True)
         return
     
-    # Simpan di memory (buat kompatibilitas)
     blacklist.add(str(user.id))
     
-    # Simpan di database (biar permanen)
     await db.add_blacklist(str(user.id), reason)
     
     embed = discord.Embed(
@@ -1524,21 +1446,17 @@ async def unblacklist(interaction: discord.Interaction, user: discord.User):
         await interaction.response.send_message("Admin only!", ephemeral=True)
         return
     
-    # Hapus dari memory
     if str(user.id) in blacklist:
         blacklist.remove(str(user.id))
     
-    # Hapus dari database
     await db.remove_blacklist(str(user.id))
     
     await interaction.response.send_message(f"✅ {user.mention} dihapus dari blacklist.")
 
 @bot.tree.command(name="catalog", description="Lihat semua item")
 async def catalog(interaction: discord.Interaction):
-    # Ambil produk dari cache
     products = await products_cache.get_products()
     
-    # Group produk berdasarkan kategori
     categories = {}
     for p in products:
         if p['category'] not in categories:
@@ -1553,25 +1471,19 @@ async def catalog(interaction: discord.Interaction):
     embed.set_thumbnail(url="https://i.imgur.com/55K63yR.png")
     embed.set_image(url="https://i.imgur.com/FvBULuL.png")
 
-    # ===== KATEGORI OTOMATIS (GAK PERLU EDIT KODE LAGI) =====
-    # Ambil semua kategori dari produk yang ADA
     all_categories = list(categories.keys())
 
-    # Urutan prioritas (kategori lama biar tetap di depan)
     priority_order = ["LIMITED SKIN", "GAMEPASS", "CRATE", "BOOST", "NITRO", "RED FINGER", "MIDMAN", "LAINNYA"]
 
-    # Gabungkan: kategori prioritas dulu, baru sisanya
     category_order = []
     for cat in priority_order:
         if cat in all_categories:
             category_order.append(cat)
             all_categories.remove(cat)
 
-    # Tambah sisa kategori yang belum masuk (kategori baru otomatis masuk)
     category_order.extend(all_categories)
     # ======================================================
 
-    # Tampilkan produk sesuai urutan
     for cat in category_order:
         if cat in categories:
             items = categories[cat][:5]  # Max 5 produk per kategori
@@ -1580,7 +1492,6 @@ async def catalog(interaction: discord.Interaction):
                 value += f"ID: {item['id']} - {item['name']} - Rp {item['price']:,}\n"
             embed.add_field(name=cat, value=value or "-", inline=False)
 
-    # Buat tombol sesuai kategori yang ADA (bukan cuma priority_order)
     view = discord.ui.View()
     for cat in category_order:
         if cat in categories:
@@ -1603,17 +1514,14 @@ async def help_command(interaction: discord.Interaction):
         description="**Selamat datang di Cellyn Store!**\nBerikut adalah cara menggunakan bot kami:",
         color=0x00ff00
     )
-    # THUMBNAIL LOGO
     embed.set_thumbnail(url="https://i.imgur.com/55K63yR.png")
     
-    # 🛒 CATALOG
     embed.add_field(
         name="🛒 **CARA ORDER**",
         value="```\n1. /catalog → pilih kategori\n2. Klik item → tiket terbuka\n3. Transfer sesuai total\n4. Klik PAID\n```",
         inline=False
     )
     
-    # COMMANDS
     embed.add_field(
         name="📌 **COMMAND UNTUK CUSTOMER**",
         value="```\n/catalog   - Lihat semua item\n/rate      - Cek rate Robux\n/items     - Lihat item di tiket\n/additem   - Tambah item\n/removeitem- Hapus item\n!cancel    - Batalkan tiket\n```",
@@ -1626,14 +1534,12 @@ async def help_command(interaction: discord.Interaction):
         inline=False
     )
     
-    # METODE PEMBAYARAN
     embed.add_field(
         name="💳 **METODE PEMBAYARAN**",
         value=f"```\n🏧 QRIS - Scan di embed\n💰 DANA - {DANA_NUMBER}\n🏦 BCA  - {BCA_NUMBER}\n```",
         inline=False
     )
     
-    # FOOTER
     embed.set_footer(
         text="CELLYN STORE • PREMIUM DIGITAL",
         icon_url="https://i.imgur.com/55K63yR.png"
@@ -1644,13 +1550,11 @@ async def help_command(interaction: discord.Interaction):
 @bot.tree.command(name="broadcast", description="📢 Kirim pesan ke semua member (Admin only)")
 @app_commands.describe(pesan="isi Pesan yang mau dikirim ke semua member")
 async def broadcast(interaction: discord.Interaction, pesan: str):
-    # CEK ADMIN
     staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
     if staff_role not in interaction.user.roles:
         await interaction.response.send_message("❌ Hanya admin yang bisa broadcast!", ephemeral=True)
         return
     
-    # ANTI SPAM: 1x PER HARI (86400 detik)
     user_id = str(interaction.user.id)
     last_used = broadcast_cooldown.get(user_id, 0)
     current_time = time.time()
@@ -1670,7 +1574,6 @@ async def broadcast(interaction: discord.Interaction, pesan: str):
     
     broadcast_cooldown[user_id] = current_time
     
-    # Simpan cooldown ke file
     with open('broadcast_cooldown.json', 'w') as f:
         json.dump(broadcast_cooldown, f)
     
@@ -1679,7 +1582,6 @@ async def broadcast(interaction: discord.Interaction, pesan: str):
     success = 0
     failed = 0
     
-    # EMBED KEREN DENGAN BANNER
     embed = discord.Embed(
         title="📢 **✨ PENGUMUMAN CELLYN STORE ✨**",
         description=f"{pesan}",
@@ -1687,19 +1589,15 @@ async def broadcast(interaction: discord.Interaction, pesan: str):
         timestamp=datetime.now()
     )
     
-    # LOGO DI POJOK KANAN ATAS
     embed.set_thumbnail(url="https://i.imgur.com/55K63yR.png")
     
-    # TAMBAH BANNER
     embed.set_image(url="https://i.imgur.com/md5cK3K.png")
     
-    # FOOTER DENGAN LOGO
     embed.set_footer(
         text="CELLYN STORE • PREMIUM DIGITAL",
         icon_url="https://i.imgur.com/55K63yR.png"
     )
     
-    # Kirim ke semua member
     for member in interaction.guild.members:
         if member.bot:
             continue
@@ -1710,7 +1608,6 @@ async def broadcast(interaction: discord.Interaction, pesan: str):
         except:
             failed += 1
     
-    # Laporan hasil
     await interaction.followup.send(
         f"✅ Broadcast selesai!\n"
         f"📨 Terkirim: **{success}** member\n"
@@ -1775,17 +1672,14 @@ async def add_product(interaction: discord.Interaction, id: int, name: str, pric
         await interaction.response.send_message("❌ Admin only!", ephemeral=True)
         return
     
-    # Validasi ID
     if any(p['id'] == id for p in PRODUCTS):
         await interaction.response.send_message(f"❌ ID {id} sudah dipakai!", ephemeral=True)
         return
     
-    # Validasi harga
     if price <= 0:
         await interaction.response.send_message("❌ Harga harus lebih dari 0!", ephemeral=True)
         return
     
-    # Produk baru
     new_product = {
         'id': id,
         'name': name,
@@ -1793,18 +1687,13 @@ async def add_product(interaction: discord.Interaction, id: int, name: str, pric
         'category': category.upper()
     }
     
-    # Tambah ke list PRODUCTS
     PRODUCTS.append(new_product)
     
-    # Simpan ke file JSON
     save_products()
     
-    # Simpan ke database
     await db.save_products(PRODUCTS)
     
-    # ===== INVALIDATE CACHE =====
     products_cache.invalidate()
-    # ============================
     
     embed = discord.Embed(
         title="✅ PRODUK DITAMBAHKAN",
@@ -1821,13 +1710,11 @@ async def edit_price(interaction: discord.Interaction, item_id: int, new_price: 
         await interaction.response.send_message("❌ Admin only!", ephemeral=True)
         return
     
-    # Cari item
     item = next((p for p in PRODUCTS if p['id'] == item_id), None)
     if not item:
         await interaction.response.send_message("❌ Item tidak ditemukan!", ephemeral=True)
         return
     
-    # Validasi harga
     if new_price <= 0:
         await interaction.response.send_message("❌ Harga harus lebih dari 0!", ephemeral=True)
         return
@@ -1835,15 +1722,11 @@ async def edit_price(interaction: discord.Interaction, item_id: int, new_price: 
     old_price = item['price']
     item['price'] = new_price
     
-    # Simpan ke file JSON
     save_products()
     
-    # Simpan ke database
     await db.save_products(PRODUCTS)
     
-    # ===== INVALIDATE CACHE =====
     products_cache.invalidate()
-    # ============================
     
     embed = discord.Embed(
         title="💰 HARGA DIUPDATE",
@@ -1860,7 +1743,6 @@ async def edit_name(interaction: discord.Interaction, item_id: int, new_name: st
         await interaction.response.send_message("❌ Admin only!", ephemeral=True)
         return
     
-    # Cari item
     item = next((p for p in PRODUCTS if p['id'] == item_id), None)
     if not item:
         await interaction.response.send_message("❌ Item tidak ditemukan!", ephemeral=True)
@@ -1869,15 +1751,11 @@ async def edit_name(interaction: discord.Interaction, item_id: int, new_name: st
     old_name = item['name']
     item['name'] = new_name
     
-    # Simpan ke file JSON
     save_products()
     
-    # Simpan ke database
     await db.save_products(PRODUCTS)
     
-    # ===== INVALIDATE CACHE =====
     products_cache.invalidate()
-    # ============================
     
     embed = discord.Embed(
         title="📝 NAMA DIUPDATE",
@@ -1894,24 +1772,18 @@ async def delete_item(interaction: discord.Interaction, item_id: int):
         await interaction.response.send_message("❌ Admin only!", ephemeral=True)
         return
     
-    # Cari item
     item = next((p for p in PRODUCTS if p['id'] == item_id), None)
     if not item:
         await interaction.response.send_message("❌ Item tidak ditemukan!", ephemeral=True)
         return
     
-    # Hapus dari list
     PRODUCTS.remove(item)
     
-    # Simpan ke file JSON
     save_products()
     
-    # Simpan ke database
     await db.save_products(PRODUCTS)
     
-    # ===== INVALIDATE CACHE =====
     products_cache.invalidate()
-    # ============================
     
     embed = discord.Embed(
         title="🗑️ ITEM DIHAPUS",
@@ -1959,9 +1831,7 @@ async def fake_invoice(interaction: discord.Interaction, jumlah: int = 1):
     
     await interaction.response.send_message(f"🧪 Generating {jumlah} fake invoice...", ephemeral=True, delete_after=3)
     
-    # ===== 125+ NAMA BUYER RANDOM =====
     buyer_names = [
-        # Game Related (30)
         "FishHunter99", "SharkBait", "TunaMaster", "SalmonSlayer", "BassPro",
         "FishermanJoe", "NetCaster", "RodMaster", "LureKing", "BaitTaker",
         "DeepSeaDiver", "CoralReaper", "OceanExplorer", "WaveRider", "TideHunter",
@@ -1969,49 +1839,39 @@ async def fake_invoice(interaction: discord.Interaction, jumlah: int = 1):
         "PirateKing", "ShipCaptain", "SailorMoon", "BoatDriver", "AnchorDrop",
         "FishWhisperer", "WaterBender", "SeaLord", "OceanMaster", "TidalWave",
         
-        # Katana / Samurai (20)
         "KatanaMaster", "SamuraiJack", "BladeRunner", "SwordSaint", "EdgeLord",
         "SlashKing", "CutMaster", "BladeDancer", "NinjaWarrior", "ShogunRuler",
         "RoninSpirit", "BushidoCode", "KatanaSlasher", "BladeRunner2", "SwordCollector",
         "EdgeHunter", "SlashMaster", "CutThroat", "BladeMaster", "NinjaStar",
         
-        # Nitro / Premium (20)
         "NitroKing", "BoostMaster", "PremiumUser", "DiscordElite", "ServerBooster",
         "NitroHunter", "BoostCollector", "PremiumHunter", "EliteMember", "DiscordPro",
         "NitroLover", "BoostKing", "PremiumPlus", "DiscordAddict", "ServerLover",
         "NitroMaster", "BoostHunter", "PremiumSeeker", "EliteHunter", "DiscordFan",
         
-        # Red Finger (15)
         "RFHunter", "VIPMaster", "KVIPSeeker", "SVIPKing", "XVIPLord",
         "RedFingerPro", "FingerMaster", "RedCollector", "VIPHunter", "KVIPHunter",
         "SVIPMaster", "XVIPCollector", "RedFingerFan", "FingerKing", "RedElite",
         
-        # Generic Keren (25)
         "ShadowHunter", "DarkKnight", "LightBringer", "StarCollector", "MoonWalker",
         "SunChaser", "CloudRider", "StormBringer", "ThunderStrike", "LightningBolt",
         "NightOwl", "EarlyBird", "NightRider", "DayDreamer", "StarGazer",
         "CosmicHunter", "GalaxyMaster", "UnicornRider", "PhoenixFire", "DragonSlayer",
         "TigerClaw", "EagleEye", "WolfPack", "BearHug", "LionHeart",
         
-        # Tambahan Tech (15)
         "NeonNights", "CyberPunk", "RetroGamer", "PixelWarrior", "BitHunter",
         "DataMiner", "CodeBreaker", "LogicBomb", "SyntaxError", "NullPointer",
         "InfiniteLoop", "StackOverflow", "BinaryKing", "HexMaster", "RootAccess"
     ]
-    # Total: 125 nama
     
-    # Metode pembayaran dengan proporsi realistik
     methods = ['DANA', 'BCA', 'QRIS']
     method_weights = [0.5, 0.3, 0.2]  # 50% DANA, 30% BCA, 20% QRIS
     
     for _ in range(jumlah):
-        # Random jumlah item dalam 1 transaksi (1-3 item)
         num_items = random.choices([1, 2, 3], weights=[0.6, 0.3, 0.1])[0]
         
-        # Pilih item random dari PRODUCTS (tanpa duplikat)
         selected_items = random.sample(PRODUCTS, k=min(num_items, len(PRODUCTS)))
         
-        # Random quantity per item (1-3)
         items = []
         for item in selected_items:
             qty = random.randint(1, 3)
@@ -2022,19 +1882,14 @@ async def fake_invoice(interaction: discord.Interaction, jumlah: int = 1):
                 "qty": qty
             })
         
-        # Hitung total
         total_price = sum(item['price'] * item['qty'] for item in items)
         
-        # Pilih metode random
         method = random.choices(methods, weights=method_weights)[0]
         
-        # Buat fake user ID (angka random panjang)
         fake_user_id = str(random.randint(100000000000000000, 999999999999999999))
         
-        # Pilih nama buyer random dari 125 nama
         buyer_name = random.choice(buyer_names)
         
-        # Kirim invoice ke channel log
         invoice_num = await send_invoice(interaction.guild, {
             'user_id': fake_user_id,
             'items': items,
@@ -2044,7 +1899,6 @@ async def fake_invoice(interaction: discord.Interaction, jumlah: int = 1):
             'fake': True  # Tandai sebagai fake
         })
         
-        # Log di console
         print(f"🧪 Fake invoice {invoice_num}: {buyer_name} - Rp {total_price:,} - {method}")
     
     await interaction.followup.send(f"✅ {jumlah} fake invoice berhasil dikirim ke channel log!", ephemeral=True)
@@ -2256,7 +2110,6 @@ async def on_interaction(interaction: discord.Interaction):
             'payment_method': None,
             'created_at': datetime.now()
         }
-        # Setelah channel tiket berhasil dibuat, simpan ke database
         await db.save_ticket(
             channel_id=str(channel.id),
             user_id=str(interaction.user.id),
@@ -2276,31 +2129,26 @@ async def on_interaction(interaction: discord.Interaction):
             color=0x2B2D31
         )
         
-        # THUMBNAIL (logo kecil di pojok kanan atas)
-        embed.set_thumbnail(url="https://i.imgur.com/55K63yR.png")  # GANTI DENGAN LOGO LO!
+        embed.set_thumbnail(url="https://i.imgur.com/55K63yR.png")  
         
-        # FIELD PEMBAYARAN
         embed.add_field(
             name="💳 **METODE PEMBAYARAN**",
             value="```\n1. QRIS\n2. DANA\n3. BCA\n```",
             inline=True
         )
         
-        # FIELD STATUS
         embed.add_field(
             name="⚡ **STATUS**",
             value="```\n🟢 AKTIF\n```",
             inline=True
         )
         
-        # FIELD INSTRUKSI RINGKAS
         embed.add_field(
             name="🔔 **LAYANAN PREMIUM**",
             value="```\n⚡ Eksekusi Instan\n💬 Live Support 24/7\n🔒 Data Terjamin Aman\n✨ Member Exclusive\n```",
             inline=False
         )
         
-        # FOOTER DENGAN ICON
         embed.set_footer(
             text="CELLYN STORE • PREMIUM DIGITAL",
             icon_url="https://i.imgur.com/55K63yR.png"
@@ -2310,7 +2158,6 @@ async def on_interaction(interaction: discord.Interaction):
         await send_item_buttons(channel, ticket)
         await interaction.response.send_message(f"Ticket created: {channel.mention}", ephemeral=True, delete_after=5)
         
-    # ===== HANDLER TOMBOL TAMBAH =====
     if custom_id.startswith('ticket_add_'):
         try:
             item_id = int(custom_id.split('_')[2])
@@ -2352,7 +2199,6 @@ async def on_interaction(interaction: discord.Interaction):
             print(f"❌ Error ticket_add: {e}")
         return
         
-        # ===== HANDLER TOMBOL KURANG =====
     if custom_id.startswith('ticket_remove_'):
         try:
             item_id = int(custom_id.split('_')[2])
@@ -2404,7 +2250,6 @@ async def on_interaction(interaction: discord.Interaction):
         ticket['status'] = 'CONFIRMED'
         ticket['admin_id'] = str(interaction.user.id)
     
-        # PINDAHKAN INVOICE_NUM KE LUAR AGAR BISA DIAKSES DI EXCEPT
         invoice_num = None
         try:
             invoice_num = await send_invoice(interaction.guild, {
@@ -2422,13 +2267,11 @@ async def on_interaction(interaction: discord.Interaction):
         if len(ticket['items']) > 2:
             items_short += f" +{len(ticket['items'])-2} lagi"
     
-        # RESPONSE KE USER
         await interaction.response.send_message(
             f"✅ Pembayaran dikonfirmasi! Invoice: `{invoice_num}`\nTicket akan ditutup dalam 5 detik...", 
             ephemeral=True
         )
     
-        # Kirim embed ke channel
         embed = discord.Embed(
             title="✅ PAYMENT CONFIRMED",
             description=f"**Items:** {items_short}\n**Total: Rp {ticket['total_price']:,}**\nInvoice: `{invoice_num}`\nTerima kasih!",
@@ -2437,13 +2280,10 @@ async def on_interaction(interaction: discord.Interaction):
         embed.set_footer(text="CELLYN STORE")
         await interaction.channel.send(embed=embed)
         
-        # ===== KIRIM INVOICE VIA DM =====
         try:
-            # Dapetin user object dari ID
             buyer = await bot.fetch_user(int(ticket['user_id']))
     
             if buyer:
-                # Buat embed invoice
                 dm_embed = discord.Embed(
                     title="🧾 **INVOICE PEMBAYARAN**",
                     description="Terima kasih telah berbelanja di **CELLYN STORE**!",
@@ -2451,7 +2291,6 @@ async def on_interaction(interaction: discord.Interaction):
                 )
                 dm_embed.set_thumbnail(url="https://i.imgur.com/55K63yR.png")
         
-                # Items
                 items_text = ""
                 for item in ticket['items']:
                     items_text += f"{item['qty']}x {item['name']} = Rp {item['price'] * item['qty']:,}\n"
@@ -2477,7 +2316,6 @@ async def on_interaction(interaction: discord.Interaction):
                 dm_embed.set_footer(text="CELLYN STORE • Terima kasih!")
                 dm_embed.timestamp = datetime.now()
         
-                # Kirim DM
                 await buyer.send(embed=dm_embed)
                 print(f"✅ Invoice DM terkirim ke {buyer.name}")
         
@@ -2486,13 +2324,11 @@ async def on_interaction(interaction: discord.Interaction):
         except Exception as e:
             print(f"❌ Gagal kirim DM: {e}")
         
-        # ===== GENERATE HTML TRANSCRIPT =====
         print("MULAI GENERATE TRANSCRIPT...")
         try:
             html_file = await generate_html_transcript(interaction.channel, interaction.user)
             print(f"✅ TRANSCRIPT BERHASIL: {html_file}")
         
-            # CARI LOG CHANNEL
             log_channel = None
         
             if LOG_CHANNEL_ID:
@@ -2518,9 +2354,7 @@ async def on_interaction(interaction: discord.Interaction):
             print(f"❌ ERROR DI TRANSCRIPT: {e}")
             import traceback
             traceback.print_exc()
-    # ===== SELESAI =====
         await db.update_ticket_status(channel_id, 'CLOSED', ticket.get('payment_method'))
-    # TUNGGU 5 DETIK & HAPUS CHANNEL (PINDAHKAN KE LUAR TRY)
         await asyncio.sleep(5)
         if channel_id in active_tickets:
             del active_tickets[channel_id]
@@ -2584,13 +2418,11 @@ async def on_message(message):
                 if staff_role:
                     await message.channel.send(f"{staff_role.mention} Ada pembayaran baru!")
     
-    # Auto react untuk channel tertentu (cuma admin)
     if hasattr(bot, 'auto_react') and message.channel.id in bot.auto_react.enabled_channels:
         staff_role = discord.utils.get(message.author.roles, name=STAFF_ROLE_NAME)
         if staff_role:  # Hanya untuk admin
             emoji_list = bot.auto_react.enabled_channels[message.channel.id]
             bot.loop.create_task(bot.auto_react.add_reactions(message, emoji_list))
-    # =========================================
     
     await bot.process_commands(message)
 
@@ -2606,50 +2438,34 @@ async def on_ready():
 
     load_products()
 
-    # Simpan produk ke database (async)
     await db.save_products(PRODUCTS)
     
-    # ===== LOAD PRODUK KE CACHE =====
     await products_cache.load_from_db()
-    # ================================
 
-    # Delay biar koneksi stabil
     await asyncio.sleep(2)
 
-    # Load tiket aktif dari database ke memory (ASYNC)
     try:
         active_tickets = await db.load_active_tickets_to_memory()
-        print(f"✅ Loaded {len(active_tickets)} active tickets from database")
+        print(f"✓ Loaded {len(active_tickets)} active tickets from database")
     except Exception as e:
         print(f"❌ Error loading tickets: {e}")
         active_tickets = {}
 
-    # Sync commands
     try:
         synced = await bot.tree.sync()
-        print(f"✅ Commands synced: {len(synced)}")
+        print(f"✓ Commands synced: {len(synced)}")
 
-        # Tampilin daftar command
         cmd_list = [cmd.name for cmd in synced]
-        print(f"📋 Commands: {', '.join(cmd_list)}")
-
-        # Cek apakah /ping ada
-        if 'ping' in cmd_list:
-            print("✅ /ping is registered!")
-        else:
-            print("❌ /ping NOT found in synced commands")
 
     except Exception as e:
         print(f"❌ Sync error: {e}")
 
-    # ===== AUTO BACKUP =====
     bot.loop.create_task(auto_backup())
-    print("Auto backup started")
+    print("✓ Auto backup started")
 
     bot.loop.create_task(update_all_member_counts())
-    print("Member count started")
+    print("✓ Member count started")
 
-# ===== FUNGSI KIRIM TOMBOL + / - =====
 async def send_item_buttons(channel, ticket):
     """Kirim tombol + dan - untuk setiap item di tiket"""
     try:
@@ -2685,7 +2501,6 @@ async def send_item_buttons(channel, ticket):
     except Exception as e:
         print(f"❌ Error send_item_buttons: {e}")
         
-# ==================== AUTO REACTION SYSTEM ====================
 import asyncio
 import random
 
@@ -2708,7 +2523,6 @@ class AutoReact:
             except:
                 continue
 
-# Tambahin auto_react ke bot
 bot.auto_react = AutoReact()
 
 @bot.tree.command(name="setreact", description="[ADMIN] Set auto-react di channel ini")
@@ -2761,33 +2575,26 @@ async def react_list(interaction: discord.Interaction):
     
     await interaction.response.send_message(embed=embed)
 
-# ==================== VOICE CHANNEL STATS ====================
 
 async def update_member_count(guild):
     """Update voice channel dengan jumlah member terkini (CEK DUPLIKASI)"""
     try:
-        # Cari atau buat kategori stats
         category = discord.utils.get(guild.categories, name="📊 SERVER STATS")
         if not category:
             category = await guild.create_category("📊 SERVER STATS")
         
-        # Nama channel yang diinginkan
         channel_name = f"Member: {guild.member_count}"
         
-        # ===== CEK CHANNEL YANG UDAH ADA =====
-        # Cari semua channel dengan awalan "👥 Member:"
         existing_channels = []
         for channel in guild.voice_channels:
             if channel.name.startswith("Member:"):
                 existing_channels.append(channel)
         
         if existing_channels:
-            # Kalo ada channel yang udah ada, update yang pertama
             main_channel = existing_channels[0]
             if main_channel.name != channel_name:
                 await main_channel.edit(name=channel_name)
             
-            # Hapus channel duplikat lainnya
             for dup_channel in existing_channels[1:]:
                 try:
                     await dup_channel.delete()
