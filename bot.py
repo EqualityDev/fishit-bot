@@ -355,6 +355,66 @@ class SimpleDB:
         except Exception as e:
             print(f"❌ Error update total: {e}")
             return False
+
+    async def load_products(self):
+        """Load semua produk dari database"""
+        try:
+            async with aiosqlite.connect(self.db_name) as db:
+                db.row_factory = aiosqlite.Row
+                cursor = await db.execute('SELECT * FROM products ORDER BY id')
+                rows = await cursor.fetchall()
+        
+            products = []
+            for row in rows:
+                products.append({
+                    'id': row['id'],
+                    'name': row['name'],
+                    'price': row['price'],
+                    'category': row['category']
+                })
+            print(f"✅ Loaded {len(products)} products from database")
+            return products
+        except Exception as e:
+            print(f"❌ Error load products: {e}")
+            return []
+# ==================== PRODUCTS CACHE ====================
+
+class ProductsCache:
+    def __init__(self):
+        self.data = []
+        self.last_update = None
+        self.cache_duration = 300  # 5 menit (dalam detik)
+    
+    def is_expired(self):
+        """Cek apakah cache sudah expired"""
+        if not self.last_update:
+            return True
+        return (datetime.now() - self.last_update).seconds > self.cache_duration
+    
+    async def load_from_db(self):
+        """Load produk dari database"""
+        self.data = await db.load_products()
+        self.last_update = datetime.now()
+        print(f"📦 Cache refreshed: {len(self.data)} products")
+        return self.data
+    
+    async def get_products(self, force_refresh=False):
+        """Ambil produk (dari cache kalo masih fresh)"""
+        if force_refresh or self.is_expired():
+            return await self.load_from_db()
+        return self.data
+    
+    async def refresh(self):
+        """Force refresh cache"""
+        return await self.load_from_db()
+    
+    def invalidate(self):
+        """Hapus cache (dipanggil kalo ada perubahan produk)"""
+        self.last_update = None
+        print("📦 Cache invalidated")
+
+# Inisialisasi cache
+products_cache = ProductsCache()
 # Init database
 db = SimpleDB()
 
@@ -378,23 +438,24 @@ try:
 except FileNotFoundError:
     broadcast_cooldown = {}
 
-def get_item_by_id(item_id):
-    return next((p for p in PRODUCTS if p['id'] == item_id), None)
+async def get_item_by_id(item_id):
+    products = await products_cache.get_products()
+    return next((p for p in products if p['id'] == item_id), None)
 
-def calculate_total_from_ticket(ticket):
+async def calculate_total_from_ticket(ticket):
     total = 0
     for entry in ticket['items']:
-        item = get_item_by_id(entry['id'])
+        item = await get_item_by_id(entry['id'])
         if item:
             total += item['price'] * entry['qty']
     return total
 
-def format_items_from_ticket(ticket):
+async def format_items_from_ticket(ticket):
     if not ticket['items']:
         return "Tidak ada item"
     result = ""
     for entry in ticket['items']:
-        item = get_item_by_id(entry['id'])
+        item = await get_item_by_id(entry['id'])
         if item:
             result += f"{entry['qty']}x {item['name']} = Rp {item['price'] * entry['qty']:,}\n"
     return result
@@ -882,6 +943,16 @@ async def ping(interaction: discord.Interaction):
     await interaction.edit_original_response(
         content=f"🏓 **Pong!**\n📡 Latensi: {latency}ms\n🌐 WebSocket: {ws_latency}ms"
     )
+
+@bot.tree.command(name="refreshcache", description="🔄 Refresh produk cache (Admin only)")
+async def refresh_cache(interaction: discord.Interaction):
+    staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
+    if staff_role not in interaction.user.roles:
+        await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+        return
+    
+    await products_cache.refresh()
+    await interaction.response.send_message(f"✅ Cache refreshed! {len(products_cache.data)} products loaded")
 
 @bot.tree.command(name="listbackup", description="[ADMIN] Lihat daftar backup")
 async def list_backups(interaction: discord.Interaction):
@@ -1384,8 +1455,12 @@ async def unblacklist(interaction: discord.Interaction, user: discord.User):
 
 @bot.tree.command(name="catalog", description="Lihat semua item")
 async def catalog(interaction: discord.Interaction):
+    # Ambil produk dari cache
+    products = await products_cache.get_products()
+    
+    # Group produk berdasarkan kategori
     categories = {}
-    for p in PRODUCTS:
+    for p in products:
         if p['category'] not in categories:
             categories[p['category']] = []
         categories[p['category']].append(p)
@@ -1427,7 +1502,7 @@ async def catalog(interaction: discord.Interaction):
 
     # Buat tombol sesuai kategori yang ADA (bukan cuma priority_order)
     view = discord.ui.View()
-    for cat in category_order:  # <-- PAKE category_order, BUKAN priority_order
+    for cat in category_order:
         if cat in categories:
             view.add_item(discord.ui.Button(
                 label=f"BUY {cat}",
@@ -1611,24 +1686,49 @@ async def cek_qris(interaction: discord.Interaction):
             await interaction.response.send_message(embed=msg.embeds[0])
             return
     await interaction.response.send_message("QR code tidak ditemukan!", ephemeral=True)
-@bot.tree.command(name="addproduct", description="➕ Tambah product baru (Admin only)")
-@app_commands.describe(name="Nama item", category="Kategori", price="Harga")
-async def add_item(interaction: discord.Interaction, name: str, category: str, price: int):
+
+@bot.tree.command(name="addproduct", description="🆕 Tambah produk baru (Admin only)")
+@app_commands.describe(id="ID produk (angka unik)", name="Nama produk", price="Harga", category="Kategori")
+async def add_product(interaction: discord.Interaction, id: int, name: str, price: int, category: str):
     staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
     if staff_role not in interaction.user.roles:
         await interaction.response.send_message("❌ Admin only!", ephemeral=True)
         return
-    new_id = max(item['id'] for item in PRODUCTS) + 1
-    PRODUCTS.append({
-        "id": new_id,
-        "name": name,
-        "category": category,
-        "price": price
-    })
+    
+    # Validasi ID
+    if any(p['id'] == id for p in PRODUCTS):
+        await interaction.response.send_message(f"❌ ID {id} sudah dipakai!", ephemeral=True)
+        return
+    
+    # Validasi harga
+    if price <= 0:
+        await interaction.response.send_message("❌ Harga harus lebih dari 0!", ephemeral=True)
+        return
+    
+    # Produk baru
+    new_product = {
+        'id': id,
+        'name': name,
+        'price': price,
+        'category': category.upper()
+    }
+    
+    # Tambah ke list PRODUCTS
+    PRODUCTS.append(new_product)
+    
+    # Simpan ke file JSON
     save_products()
+    
+    # Simpan ke database
+    await db.save_products(PRODUCTS)
+    
+    # ===== INVALIDATE CACHE =====
+    products_cache.invalidate()
+    # ============================
+    
     embed = discord.Embed(
-        title="✅ ITEM DITAMBAHKAN",
-        description=f"**ID:** {new_id}\n**Nama:** {name}\n**Kategori:** {category}\n**Harga:** Rp {price:,}",
+        title="✅ PRODUK DITAMBAHKAN",
+        description=f"**ID:** {id}\n**Nama:** {name}\n**Harga:** Rp {price:,}\n**Kategori:** {category.upper()}",
         color=0x00ff00
     )
     await interaction.response.send_message(embed=embed)
@@ -1640,13 +1740,31 @@ async def edit_price(interaction: discord.Interaction, item_id: int, new_price: 
     if staff_role not in interaction.user.roles:
         await interaction.response.send_message("❌ Admin only!", ephemeral=True)
         return
+    
+    # Cari item
     item = next((p for p in PRODUCTS if p['id'] == item_id), None)
     if not item:
         await interaction.response.send_message("❌ Item tidak ditemukan!", ephemeral=True)
         return
+    
+    # Validasi harga
+    if new_price <= 0:
+        await interaction.response.send_message("❌ Harga harus lebih dari 0!", ephemeral=True)
+        return
+    
     old_price = item['price']
     item['price'] = new_price
+    
+    # Simpan ke file JSON
     save_products()
+    
+    # Simpan ke database
+    await db.save_products(PRODUCTS)
+    
+    # ===== INVALIDATE CACHE =====
+    products_cache.invalidate()
+    # ============================
+    
     embed = discord.Embed(
         title="💰 HARGA DIUPDATE",
         description=f"**Item:** {item['name']} (ID: {item_id})\n**Harga lama:** Rp {old_price:,}\n**Harga baru:** Rp {new_price:,}",
@@ -1661,13 +1779,26 @@ async def edit_name(interaction: discord.Interaction, item_id: int, new_name: st
     if staff_role not in interaction.user.roles:
         await interaction.response.send_message("❌ Admin only!", ephemeral=True)
         return
+    
+    # Cari item
     item = next((p for p in PRODUCTS if p['id'] == item_id), None)
     if not item:
         await interaction.response.send_message("❌ Item tidak ditemukan!", ephemeral=True)
         return
+    
     old_name = item['name']
     item['name'] = new_name
+    
+    # Simpan ke file JSON
     save_products()
+    
+    # Simpan ke database
+    await db.save_products(PRODUCTS)
+    
+    # ===== INVALIDATE CACHE =====
+    products_cache.invalidate()
+    # ============================
+    
     embed = discord.Embed(
         title="📝 NAMA DIUPDATE",
         description=f"**ID:** {item_id}\n**Nama lama:** {old_name}\n**Nama baru:** {new_name}",
@@ -1676,21 +1807,35 @@ async def edit_name(interaction: discord.Interaction, item_id: int, new_name: st
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="deleteitem", description="🗑️ Hapus item (Admin only)")
-@app_commands.describe(item_id="ID item yang mau dihapus")
+@app_commands.describe(item_id="ID item yang akan dihapus")
 async def delete_item(interaction: discord.Interaction, item_id: int):
     staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
     if staff_role not in interaction.user.roles:
         await interaction.response.send_message("❌ Admin only!", ephemeral=True)
         return
+    
+    # Cari item
     item = next((p for p in PRODUCTS if p['id'] == item_id), None)
     if not item:
         await interaction.response.send_message("❌ Item tidak ditemukan!", ephemeral=True)
         return
+    
+    # Hapus dari list
     PRODUCTS.remove(item)
+    
+    # Simpan ke file JSON
     save_products()
+    
+    # Simpan ke database
+    await db.save_products(PRODUCTS)
+    
+    # ===== INVALIDATE CACHE =====
+    products_cache.invalidate()
+    # ============================
+    
     embed = discord.Embed(
         title="🗑️ ITEM DIHAPUS",
-        description=f"**Item:** {item['name']} (ID: {item_id})",
+        description=f"**ID:** {item_id}\n**Nama:** {item['name']}\n**Harga:** Rp {item['price']:,}",
         color=0xff0000
     )
     await interaction.response.send_message(embed=embed)
@@ -2096,7 +2241,7 @@ async def on_interaction(interaction: discord.Interaction):
                 await db.update_ticket_items(channel_id, ticket['items'])
                 await db.update_ticket_total(channel_id, ticket['total_price'])
         
-            ticket['total_price'] = calculate_total_from_ticket(ticket)
+            ticket['total_price'] = await calculate_total_from_ticket(ticket)
         
             await interaction.channel.purge(limit=10, check=lambda m: m.author == bot.user and m.components)
             await send_item_buttons(interaction.channel, ticket)
@@ -2130,7 +2275,7 @@ async def on_interaction(interaction: discord.Interaction):
                     if entry['qty'] > 1:
                             entry['qty'] -= 1
                     break
-            ticket['total_price'] = calculate_total_from_ticket(ticket)
+            ticket['total_price'] = await calculate_total_from_ticket(ticket)
         
             await interaction.channel.purge(limit=10, check=lambda m: m.author == bot.user and m.components)
             await send_item_buttons(interaction.channel, ticket)
@@ -2356,7 +2501,14 @@ async def on_ready():
     global LOG_CHANNEL_ID, active_tickets
     LOG_CHANNEL_ID = None
     load_products()
+
+    # Simpan produk ke database (async)
     await db.save_products(PRODUCTS)
+    
+    # ===== LOAD PRODUK KE CACHE =====
+    await products_cache.load_from_db()
+    # ================================
+
     # Delay biar koneksi stabil
     await asyncio.sleep(2)
 
@@ -2388,15 +2540,17 @@ async def on_ready():
 
     # ===== AUTO BACKUP =====
     bot.loop.create_task(auto_backup())
-    print("🔄 Auto backup task started")
-    # =======================
+    print("Auto backup started")
+
+    bot.loop.create_task(update_all_member_counts())
+    print("Member count started")
 
 # ===== FUNGSI KIRIM TOMBOL + / - =====
 async def send_item_buttons(channel, ticket):
     """Kirim tombol + dan - untuk setiap item di tiket"""
     try:
         for entry in ticket['items']:
-            item = get_item_by_id(entry['id'])
+            item = await get_item_by_id(entry['id'])
             if item:
                 view = discord.ui.View()
                 
@@ -2502,13 +2656,59 @@ async def react_list(interaction: discord.Interaction):
         embed.add_field(name=ch_name, value=f"Emoji: {' '.join(emojis)}", inline=False)
     
     await interaction.response.send_message(embed=embed)
-# ========================================
 
+# ==================== VOICE CHANNEL STATS ====================
+
+async def update_member_count(guild):
+    """Update voice channel dengan jumlah member terkini"""
+    try:
+        # Cari atau buat kategori stats
+        category = discord.utils.get(guild.categories, name="📊 SERVER STATS")
+        if not category:
+            category = await guild.create_category("📊 SERVER STATS")
+        
+        # Nama channel yang diinginkan
+        channel_name = f"Member: {guild.member_count}"
+        
+        # Cari channel yang udah ada
+        channel = discord.utils.get(guild.voice_channels, name__startswith="👥 Member:")
+        
+        if channel:
+            # Update nama channel kalo beda
+            if channel.name != channel_name:
+                await channel.edit(name=channel_name)
+        else:
+            # Buat channel baru
+            await guild.create_voice_channel(
+                name=channel_name,
+                category=category,
+                user_limit=0
+            )
+            
+    except Exception as e:
+        print(f"❌ Error updating member count in {guild.name}: {e}")
+
+async def update_all_member_counts():
+    """Update member count di semua guild"""
+    while True:
+        for guild in bot.guilds:
+            await update_member_count(guild)
+        
+        await asyncio.sleep(600)
+@bot.event
+async def on_member_join(member):
+    """Update member count pas ada yang join"""
+    await update_member_count(member.guild)
+
+@bot.event
+async def on_member_remove(member):
+    """Update member count pas ada yang leave"""
+    await update_member_count(member.guild)
 
 if __name__ == "__main__":
     if not TOKEN:
         print("ERROR: DISCORD_TOKEN not found in .env")
         exit()
-    print("Starting CELLYN STORE BOT...")
-    print("Author by Equality")
+    print("Starting BOT...")
+    print("Under develop Equality")
     bot.run(TOKEN)
