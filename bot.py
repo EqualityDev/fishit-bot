@@ -38,203 +38,204 @@ user_transaction_count = {}
 LOG_CHANNEL_ID = None
 logger = logging.getLogger(__name__)
 
+# ==================== ERROR HANDLING UTILITY ====================
 
+async def handle_error(interaction_or_ctx, error, title="❌ Error", ephemeral=True):
+    """Handle error dengan konsisten"""
+    error_msg = str(error)
+    print(f"❌ Error: {error_msg}")
+    print(f"📍 Location: {error.__traceback__.tb_frame.f_code.co_name}")
+    
+    # Coba kirim ke user
+    try:
+        if hasattr(interaction_or_ctx, 'response') and not interaction_or_ctx.response.is_done():
+            await interaction_or_ctx.response.send_message(
+                f"{title}\n```\n{error_msg[:1500]}\n```", 
+                ephemeral=ephemeral
+            )
+        elif hasattr(interaction_or_ctx, 'followup'):
+            await interaction_or_ctx.followup.send(
+                f"{title}\n```\n{error_msg[:1500]}\n```", 
+                ephemeral=ephemeral
+            )
+        elif hasattr(interaction_or_ctx, 'send'):
+            await interaction_or_ctx.send(
+                f"{title}\n```\n{error_msg[:1500]}\n```"
+            )
+    except:
+        pass  # Gagal kirim pesan, minimal sudah tercetak di log
+
+def log_error(error, context=""):
+    """Log error ke console dengan format konsisten"""
+    import traceback
+    print(f"❌ ERROR [{context}]: {error}")
+    print("".join(traceback.format_tb(error.__traceback__)))
+#===============================
+    
 class SimpleDB:
     
     def __init__(self, db_name="store.db"):
         self.db_name = db_name
-        self.init_db()
+        # Init db async akan dipanggil terpisah
     
-    def init_db(self):
-        """Buat tabel kalo belum ada"""
-        conn = sqlite3.connect(self.db_name)
-        c = conn.cursor()
-        
-        c.execute('''CREATE TABLE IF NOT EXISTS transactions
-                     (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                      invoice TEXT,
-                      user_id TEXT,
-                      items TEXT,
-                      total_price INTEGER,
-                      payment_method TEXT,
-                      timestamp TEXT)''')
-        
-        c.execute('''CREATE TABLE IF NOT EXISTS products
-                     (id INTEGER PRIMARY KEY,
-                      name TEXT,
-                      price INTEGER,
-                      category TEXT)''')
+    async def init_db(self):
+        """Buat tabel kalo belum ada (async)"""
+        async with aiosqlite.connect(self.db_name) as db:
+            await db.execute('''CREATE TABLE IF NOT EXISTS transactions
+                         (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                          invoice TEXT,
+                          user_id TEXT,
+                          items TEXT,
+                          total_price INTEGER,
+                          payment_method TEXT,
+                          timestamp TEXT)''')
+            
+            await db.execute('''CREATE TABLE IF NOT EXISTS products
+                         (id INTEGER PRIMARY KEY,
+                          name TEXT,
+                          price INTEGER,
+                          category TEXT)''')
 
-        c.execute('''CREATE TABLE IF NOT EXISTS blacklist
-                     (user_id TEXT PRIMARY KEY,
-                      reason TEXT,
-                      timestamp TEXT)''')
-        
-        conn.commit()
-        conn.close()
-        print("✅ Database siap")
+            await db.execute('''CREATE TABLE IF NOT EXISTS blacklist
+                         (user_id TEXT PRIMARY KEY,
+                          reason TEXT,
+                          timestamp TEXT)''')
+            
+            await db.commit()
+        print("✅ Database siap (async)")
     
-    def save_transaction(self, trans_data):
-        """Simpan transaksi ke database"""
+    async def save_transaction(self, trans_data):
+        """Simpan transaksi ke database (async)"""
         try:
-            conn = sqlite3.connect(self.db_name)
-            c = conn.cursor()
-            
-            # Konversi items ke JSON string
-            items_json = json.dumps(trans_data['items'])
-            
-            c.execute('''INSERT INTO transactions 
-                        (invoice, user_id, items, total_price, payment_method, timestamp)
-                        VALUES (?, ?, ?, ?, ?, ?)''',
-                     (trans_data['invoice'],
-                      trans_data['user_id'],
-                      items_json,
-                      trans_data['total_price'],
-                      trans_data.get('payment_method', ''),
-                      datetime.now().isoformat()))
-            
-            conn.commit()
-            conn.close()
+            async with aiosqlite.connect(self.db_name) as db:
+                items_json = json.dumps(trans_data['items'])
+                
+                await db.execute('''INSERT INTO transactions 
+                            (invoice, user_id, items, total_price, payment_method, timestamp)
+                            VALUES (?, ?, ?, ?, ?, ?)''',
+                         (trans_data['invoice'],
+                          trans_data['user_id'],
+                          items_json,
+                          trans_data['total_price'],
+                          trans_data.get('payment_method', ''),
+                          datetime.now().isoformat()))
+                
+                await db.commit()
             return True
         except Exception as e:
             print(f"❌ Error simpan transaksi: {e}")
             return False
     
-    def get_user_transactions(self, user_id, limit=5):
-        """Ambil transaksi user"""
+    async def get_user_transactions(self, user_id, limit=5):
+        """Ambil transaksi user (async)"""
         try:
-            conn = sqlite3.connect(self.db_name)
-            c = conn.cursor()
+            async with aiosqlite.connect(self.db_name) as db:
+                db.row_factory = aiosqlite.Row
+                cursor = await db.execute('''SELECT * FROM transactions 
+                            WHERE user_id = ? 
+                            ORDER BY timestamp DESC 
+                            LIMIT ?''', (user_id, limit))
+                
+                rows = await cursor.fetchall()
             
-            c.execute('''SELECT * FROM transactions 
-                        WHERE user_id = ? 
-                        ORDER BY timestamp DESC 
-                        LIMIT ?''', (user_id, limit))
-            
-            rows = c.fetchall()
-            conn.close()
-            
-            # Convert ke format yang sama kayak kode lama
             result = []
             for row in rows:
                 result.append({
-                    'invoice': row[1],
-                    'user_id': row[2],
-                    'items': json.loads(row[3]),
-                    'total_price': row[4],
-                    'payment_method': row[5],
-                    'timestamp': datetime.fromisoformat(row[6])
+                    'invoice': row['invoice'],
+                    'user_id': row['user_id'],
+                    'items': json.loads(row['items']),
+                    'total_price': row['total_price'],
+                    'payment_method': row['payment_method'],
+                    'timestamp': datetime.fromisoformat(row['timestamp'])
                 })
             return result
         except Exception as e:
             print(f"❌ Error ambil transaksi: {e}")
             return []
     
-    def get_all_transactions(self):
-        """Ambil semua transaksi"""
+    async def get_all_transactions(self):
+        """Ambil semua transaksi (async)"""
         try:
-            conn = sqlite3.connect(self.db_name)
-            c = conn.cursor()
-            
-            c.execute('SELECT * FROM transactions ORDER BY timestamp DESC')
-            rows = c.fetchall()
-            conn.close()
+            async with aiosqlite.connect(self.db_name) as db:
+                db.row_factory = aiosqlite.Row
+                cursor = await db.execute('SELECT * FROM transactions ORDER BY timestamp DESC')
+                rows = await cursor.fetchall()
             
             result = []
             for row in rows:
                 result.append({
-                    'invoice': row[1],
-                    'user_id': row[2],
-                    'items': json.loads(row[3]),
-                    'total_price': row[4],
-                    'payment_method': row[5],
-                    'timestamp': datetime.fromisoformat(row[6])
+                    'invoice': row['invoice'],
+                    'user_id': row['user_id'],
+                    'items': json.loads(row['items']),
+                    'total_price': row['total_price'],
+                    'payment_method': row['payment_method'],
+                    'timestamp': datetime.fromisoformat(row['timestamp'])
                 })
             return result
         except Exception as e:
             print(f"❌ Error ambil semua transaksi: {e}")
             return []
     
-    def add_blacklist(self, user_id, reason=""):
-        """Tambah user ke blacklist"""
+    async def add_blacklist(self, user_id, reason=""):
+        """Tambah user ke blacklist (async)"""
         try:
-            conn = sqlite3.connect(self.db_name)
-            c = conn.cursor()
-            
-            c.execute('''INSERT OR REPLACE INTO blacklist 
-                        (user_id, reason, timestamp)
-                        VALUES (?, ?, ?)''',
-                     (user_id, reason, datetime.now().isoformat()))
-            
-            conn.commit()
-            conn.close()
+            async with aiosqlite.connect(self.db_name) as db:
+                await db.execute('''INSERT OR REPLACE INTO blacklist 
+                            (user_id, reason, timestamp)
+                            VALUES (?, ?, ?)''',
+                         (user_id, reason, datetime.now().isoformat()))
+                await db.commit()
             return True
         except Exception as e:
             print(f"❌ Error blacklist: {e}")
             return False
     
-    def remove_blacklist(self, user_id):
-        """Hapus dari blacklist"""
+    async def remove_blacklist(self, user_id):
+        """Hapus dari blacklist (async)"""
         try:
-            conn = sqlite3.connect(self.db_name)
-            c = conn.cursor()
-            
-            c.execute('DELETE FROM blacklist WHERE user_id = ?', (user_id,))
-            
-            conn.commit()
-            conn.close()
+            async with aiosqlite.connect(self.db_name) as db:
+                await db.execute('DELETE FROM blacklist WHERE user_id = ?', (user_id,))
+                await db.commit()
             return True
         except Exception as e:
             print(f"❌ Error hapus blacklist: {e}")
             return False
     
-    def is_blacklisted(self, user_id):
-        """Cek apakah user di-blacklist"""
+    async def is_blacklisted(self, user_id):
+        """Cek apakah user di-blacklist (async)"""
         try:
-            conn = sqlite3.connect(self.db_name)
-            c = conn.cursor()
-            
-            c.execute('SELECT 1 FROM blacklist WHERE user_id = ?', (user_id,))
-            result = c.fetchone() is not None
-            
-            conn.close()
+            async with aiosqlite.connect(self.db_name) as db:
+                cursor = await db.execute('SELECT 1 FROM blacklist WHERE user_id = ?', (user_id,))
+                result = await cursor.fetchone() is not None
             return result
         except Exception as e:
             print(f"❌ Error cek blacklist: {e}")
             return False
     
-    def get_blacklist(self):
-        """Ambil semua data blacklist"""
+    async def get_blacklist(self):
+        """Ambil semua data blacklist (async)"""
         try:
-            conn = sqlite3.connect(self.db_name)
-            c = conn.cursor()
-        
-            c.execute('SELECT user_id, reason, timestamp FROM blacklist ORDER BY timestamp DESC')
-            rows = c.fetchall()
-        
-            conn.close()
+            async with aiosqlite.connect(self.db_name) as db:
+                cursor = await db.execute('SELECT user_id, reason, timestamp FROM blacklist ORDER BY timestamp DESC')
+                rows = await cursor.fetchall()
             return rows
         except Exception as e:
             print(f"❌ Error ambil blacklist: {e}")
             return []
-    def save_products(self, products):
-        """Simpan produk ke database"""
+    
+    async def save_products(self, products):
+        """Simpan produk ke database (async)"""
         try:
-            conn = sqlite3.connect(self.db_name)
-            c = conn.cursor()
-        
-        # Hapus semua produk lama dulu
-            c.execute('DELETE FROM products')
-        
-        # Insert produk baru
-            for p in products:
-                c.execute('''
-                    INSERT INTO products (id, name, price, category)
-                    VALUES (?, ?, ?, ?)
-                ''', (p['id'], p['name'], p['price'], p['category']))
-        
-            conn.commit()
-            conn.close()
+            async with aiosqlite.connect(self.db_name) as db:
+                await db.execute('DELETE FROM products')
+                
+                for p in products:
+                    await db.execute('''
+                        INSERT INTO products (id, name, price, category)
+                        VALUES (?, ?, ?, ?)
+                    ''', (p['id'], p['name'], p['price'], p['category']))
+                
+                await db.commit()
             print(f"✅ Saved {len(products)} products to database")
             return True
         except Exception as e:
@@ -243,136 +244,113 @@ class SimpleDB:
 
     # ===== TICKET DATABASE (PERMANEN) =====
 
-    def save_ticket(self, channel_id, user_id, items, total_price):
-        """Simpan tiket aktif ke database"""
+    async def save_ticket(self, channel_id, user_id, items, total_price):
+        """Simpan tiket aktif ke database (async)"""
         try:
-            conn = sqlite3.connect(self.db_name)
-            c = conn.cursor()
-        
-        # Buat tabel kalo belum ada
-            c.execute('''CREATE TABLE IF NOT EXISTS active_tickets (
-                channel_id TEXT PRIMARY KEY,
-                user_id TEXT,
-                items TEXT,
-                total_price INTEGER,
-                payment_method TEXT,
-                status TEXT DEFAULT 'OPEN',
-                created_at TEXT
-            )''')
-        
-        # Simpan tiket
-            c.execute('''INSERT OR REPLACE INTO active_tickets 
-                        (channel_id, user_id, items, total_price, status, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?)''',
-                     (channel_id, user_id, json.dumps(items), total_price, 'OPEN', datetime.now().isoformat()))
-        
-            conn.commit()
-            conn.close()
+            async with aiosqlite.connect(self.db_name) as db:
+                await db.execute('''CREATE TABLE IF NOT EXISTS active_tickets (
+                    channel_id TEXT PRIMARY KEY,
+                    user_id TEXT,
+                    items TEXT,
+                    total_price INTEGER,
+                    payment_method TEXT,
+                    status TEXT DEFAULT 'OPEN',
+                    created_at TEXT
+                )''')
+                
+                await db.execute('''INSERT OR REPLACE INTO active_tickets 
+                            (channel_id, user_id, items, total_price, status, created_at)
+                            VALUES (?, ?, ?, ?, ?, ?)''',
+                         (channel_id, user_id, json.dumps(items), total_price, 'OPEN', datetime.now().isoformat()))
+                
+                await db.commit()
             return True
         except Exception as e:
             print(f"❌ Error save ticket: {e}")
             return False
 
-    def get_active_tickets(self):
-        """Ambil semua tiket aktif dari database"""
+    async def get_active_tickets(self):
+        """Ambil semua tiket aktif dari database (async)"""
         try:
-            conn = sqlite3.connect(self.db_name)
-            c = conn.cursor()
-        
-            c.execute('SELECT * FROM active_tickets WHERE status = "OPEN"')
-            rows = c.fetchall()
-            conn.close()
-        
+            async with aiosqlite.connect(self.db_name) as db:
+                db.row_factory = aiosqlite.Row
+                cursor = await db.execute('SELECT * FROM active_tickets WHERE status = "OPEN"')
+                rows = await cursor.fetchall()
+            
             tickets = {}
             for row in rows:
-                channel_id = row[0]
-                tickets[channel_id] = {
-                    'user_id': row[1],
-                    'items': json.loads(row[2]),
-                    'total_price': row[3],
-                    'payment_method': row[4],
-                    'status': row[5],
-                    'created_at': row[6]
+                tickets[row['channel_id']] = {
+                    'user_id': row['user_id'],
+                    'items': json.loads(row['items']),
+                    'total_price': row['total_price'],
+                    'payment_method': row['payment_method'],
+                    'status': row['status'],
+                    'created_at': row['created_at']
                 }
             return tickets
         except Exception as e:
             print(f"❌ Error get active tickets: {e}")
             return {}
 
-    def update_ticket_status(self, channel_id, status, payment_method=None):
-        """Update status tiket"""
+    async def update_ticket_status(self, channel_id, status, payment_method=None):
+        """Update status tiket (async)"""
         try:
-            conn = sqlite3.connect(self.db_name)
-            c = conn.cursor()
-        
-            if payment_method:
-                c.execute('''UPDATE active_tickets 
-                            SET status = ?, payment_method = ? 
-                            WHERE channel_id = ?''',
-                         (status, payment_method, channel_id))
-            else:
-                c.execute('''UPDATE active_tickets 
-                            SET status = ? 
-                            WHERE channel_id = ?''',
-                         (status, channel_id))
-        
-            conn.commit()
-            conn.close()
+            async with aiosqlite.connect(self.db_name) as db:
+                if payment_method:
+                    await db.execute('''UPDATE active_tickets 
+                                SET status = ?, payment_method = ? 
+                                WHERE channel_id = ?''',
+                             (status, payment_method, channel_id))
+                else:
+                    await db.execute('''UPDATE active_tickets 
+                                SET status = ? 
+                                WHERE channel_id = ?''',
+                             (status, channel_id))
+                
+                await db.commit()
             return True
         except Exception as e:
             print(f"❌ Error update ticket: {e}")
             return False
 
-    def delete_ticket(self, channel_id):
-        """Hapus tiket dari database (pas ditutup)"""
+    async def delete_ticket(self, channel_id):
+        """Hapus tiket dari database (async)"""
         try:
-            conn = sqlite3.connect(self.db_name)
-            c = conn.cursor()
-        
-            c.execute('DELETE FROM active_tickets WHERE channel_id = ?', (channel_id,))
-        
-            conn.commit()
-            conn.close()
+            async with aiosqlite.connect(self.db_name) as db:
+                await db.execute('DELETE FROM active_tickets WHERE channel_id = ?', (channel_id,))
+                await db.commit()
             return True
         except Exception as e:
             print(f"❌ Error delete ticket: {e}")
             return False
 
-    def load_active_tickets_to_memory(self):
-        """Load semua tiket aktif ke memory (active_tickets)"""
-        return self.get_active_tickets()
+    async def load_active_tickets_to_memory(self):
+        """Load semua tiket aktif ke memory (async)"""
+        return await self.get_active_tickets()
 
-    def update_ticket_items(self, channel_id, items):
-        """Update items di tiket"""
+    async def update_ticket_items(self, channel_id, items):
+        """Update items di tiket (async)"""
         try:
-            conn = sqlite3.connect(self.db_name)
-            c = conn.cursor()
-        
-            c.execute('''UPDATE active_tickets 
-                        SET items = ? 
-                        WHERE channel_id = ?''',
-                     (json.dumps(items), channel_id))
-        
-            conn.commit()
-            conn.close()
+            async with aiosqlite.connect(self.db_name) as db:
+                await db.execute('''UPDATE active_tickets 
+                            SET items = ? 
+                            WHERE channel_id = ?''',
+                         (json.dumps(items), channel_id))
+                await db.commit()
             return True
         except Exception as e:
             print(f"❌ Error update items: {e}")
             return False
 
-    def update_ticket_total(self, channel_id, total_price):
-        """Update total price di tiket"""
+    async def update_ticket_total(self, channel_id, total_price):
+        """Update total price di tiket (async)"""
         try:
-            conn = sqlite3.connect(self.db_name)
-            c = conn.cursor()
-        
-            c.execute('''UPDATE active_tickets 
-                        SET total_price = ? 
-                        WHERE channel_id = ?''',
-                     (total_price, channel_id))
-        
-            conn.commit()
-            conn.close()
+            async with aiosqlite.connect(self.db_name) as db:
+                await db.execute('''UPDATE active_tickets 
+                            SET total_price = ? 
+                            WHERE channel_id = ?''',
+                         (total_price, channel_id))
+                await db.commit()
             return True
         except Exception as e:
             print(f"❌ Error update total: {e}")
@@ -380,13 +358,7 @@ class SimpleDB:
 # Init database
 db = SimpleDB()
 
-# Load tiket aktif dari database ke memory
-try:
-    active_tickets = db.load_active_tickets_to_memory()
-    print(f"✅ Loaded {len(active_tickets)} active tickets from database")
-except Exception as e:
-    print(f"❌ Error loading tickets: {e}")
-    active_tickets = {}
+active_tickets = {}
 # Poad product from json
 global PRODUCTS
 try:
@@ -395,7 +367,6 @@ try:
     print(f"✅ Load {len(PRODUCTS)} products from products.json")
     
     # Simpan ke database biar kedepannya aman
-    db.save_products(PRODUCTS)
 except Exception as e:
     print(f"❌ Gagal load products.json: {e}")
     PRODUCTS = []
@@ -576,7 +547,7 @@ async def send_invoice(guild, transaction_data):
     
     await channel.send(embed=embed)
 
-    db.save_transaction(transaction_data)
+    await db.save_transaction(transaction_data)
     return invoice_num
 
 def calculate_total(items):
@@ -946,7 +917,7 @@ async def stats_detail(interaction: discord.Interaction):
         await interaction.response.send_message("❌ Admin only!", ephemeral=True)
         return
     
-    all_trans = db.get_all_transactions() + transactions
+    all_trans = await db.get_all_transactions() + transactions
     
     # Filter transaksi real (bukan fake)
     real_trans = [t for t in all_trans if not t.get('fake')]
@@ -1053,7 +1024,7 @@ async def export_transactions(
     
     try:
         # Ambil semua transaksi dari database
-        all_trans = db.get_all_transactions()
+        all_trans = await db.get_all_transactions()
         
         # Gabung dengan transaksi di memory
         all_trans = all_trans + transactions
@@ -1181,7 +1152,7 @@ async def history(interaction: discord.Interaction):
     user_id = str(interaction.user.id)
     
     # Ambil dari database dulu (5 transaksi terakhir)
-    user_transactions = db.get_user_transactions(user_id, limit=5)
+    user_transactions = await db.get_user_transactions(user_id, limit=5)
     
     # Kalau dari database kosong, ambil dari list lama
     if not user_transactions:
@@ -1192,7 +1163,7 @@ async def history(interaction: discord.Interaction):
         return
     
     # Hitung total semua transaksi user
-    all_user = db.get_user_transactions(user_id, limit=1000)
+    all_user = await db.get_user_transactions(user_id, limit=1000)
     total_trans = len(all_user) if all_user else len([t for t in transactions if t['user_id'] == user_id])
     
     last_5 = user_transactions[-5:]
@@ -1244,7 +1215,7 @@ async def all_history(interaction: discord.Interaction, user: discord.User):
     user_id = str(user.id)
     
     # Ambil SEMUA transaksi dari database
-    all_trans = db.get_user_transactions(user_id, limit=1000)  # ambil semua
+    all_trans = await db.get_user_transactions(user_id, limit=1000)  # ambil semua
     
     # Kalo kosong, coba dari list lama
     if not all_trans:
@@ -1308,8 +1279,8 @@ async def stats(interaction: discord.Interaction):
         return
     
     # ===== GABUNG DATA DARI DATABASE + MEMORY =====
-    db_transactions = db.get_all_transactions()
-    all_transactions = db_transactions + transactions  # Gabung database + list lama
+    db_transactions = await db.get_all_transactions()
+    all_transactions = await db_transactions + transactions  # Gabung database + list lama
     # ===============================================
     
     today = datetime.now().date()
@@ -1383,7 +1354,7 @@ async def blacklist_user(interaction: discord.Interaction, user: discord.User, r
     blacklist.add(str(user.id))
     
     # Simpan di database (biar permanen)
-    db.add_blacklist(str(user.id), reason)
+    await db.add_blacklist(str(user.id), reason)
     
     embed = discord.Embed(
         title="⛔ BLACKLIST",
@@ -1407,7 +1378,7 @@ async def unblacklist(interaction: discord.Interaction, user: discord.User):
         blacklist.remove(str(user.id))
     
     # Hapus dari database
-    db.remove_blacklist(str(user.id))
+    await db.remove_blacklist(str(user.id))
     
     await interaction.response.send_message(f"✅ {user.mention} dihapus dari blacklist.")
 
@@ -1430,17 +1401,17 @@ async def catalog(interaction: discord.Interaction):
     # ===== KATEGORI OTOMATIS (GAK PERLU EDIT KODE LAGI) =====
     # Ambil semua kategori dari produk yang ADA
     all_categories = list(categories.keys())
-    
+
     # Urutan prioritas (kategori lama biar tetap di depan)
     priority_order = ["LIMITED SKIN", "GAMEPASS", "CRATE", "BOOST", "NITRO", "RED FINGER", "MIDMAN", "LAINNYA"]
-    
+
     # Gabungkan: kategori prioritas dulu, baru sisanya
     category_order = []
     for cat in priority_order:
         if cat in all_categories:
             category_order.append(cat)
             all_categories.remove(cat)
-    
+
     # Tambah sisa kategori yang belum masuk (kategori baru otomatis masuk)
     category_order.extend(all_categories)
     # ======================================================
@@ -2039,7 +2010,7 @@ async def on_interaction(interaction: discord.Interaction):
             'created_at': datetime.now()
         }
         # Setelah channel tiket berhasil dibuat, simpan ke database
-        db.save_ticket(
+        await db.save_ticket(
             channel_id=str(channel.id),
             user_id=str(interaction.user.id),
             items=ticket['items'],
@@ -2118,12 +2089,12 @@ async def on_interaction(interaction: discord.Interaction):
                     found = True
                     break
             if found:
-                db.update_ticket_items(channel_id, ticket['items'])
-                db.update_ticket_total(channel_id, ticket['total_price'])
+                await db.update_ticket_items(channel_id, ticket['items'])
+                await db.update_ticket_total(channel_id, ticket['total_price'])
             else:
                 ticket['items'].append({"id": item_id, "qty": 1})
-                db.update_ticket_items(channel_id, ticket['items'])
-                db.update_ticket_total(channel_id, ticket['total_price'])
+                await db.update_ticket_items(channel_id, ticket['items'])
+                await db.update_ticket_total(channel_id, ticket['total_price'])
         
             ticket['total_price'] = calculate_total_from_ticket(ticket)
         
@@ -2301,7 +2272,7 @@ async def on_interaction(interaction: discord.Interaction):
             import traceback
             traceback.print_exc()
     # ===== SELESAI =====
-        db.update_ticket_status(channel_id, 'CLOSED', ticket.get('payment_method'))
+        await db.update_ticket_status(channel_id, 'CLOSED', ticket.get('payment_method'))
     # TUNGGU 5 DETIK & HAPUS CHANNEL (PINDAHKAN KE LUAR TRY)
         await asyncio.sleep(5)
         if channel_id in active_tickets:
@@ -2336,7 +2307,7 @@ async def on_message(message):
                 method = methods[int(message.content) - 1]
                 ticket['payment_method'] = method
                 total = ticket['total_price']
-                db.update_ticket_status(str(message.channel.id), 'OPEN', method)
+                await db.update_ticket_status(str(message.channel.id), 'OPEN', method)
                 
                 if method == 'QRIS':
                     await message.channel.send("Gunakan /qris untuk melihat QR code")
@@ -2382,16 +2353,16 @@ async def on_ready():
     print(f"BOT READY - {bot.user}")
     print(f"Server: {len(bot.guilds)}")
     print(f"Staff Role: {STAFF_ROLE_NAME}")
-    global LOG_CHANNEL_ID
+    global LOG_CHANNEL_ID, active_tickets
     LOG_CHANNEL_ID = None
     load_products()
-
+    await db.save_products(PRODUCTS)
     # Delay biar koneksi stabil
     await asyncio.sleep(2)
 
-    # Load tiket aktif dari database ke memory
+    # Load tiket aktif dari database ke memory (ASYNC)
     try:
-        active_tickets = db.load_active_tickets_to_memory()
+        active_tickets = await db.load_active_tickets_to_memory()
         print(f"✅ Loaded {len(active_tickets)} active tickets from database")
     except Exception as e:
         print(f"❌ Error loading tickets: {e}")
@@ -2415,10 +2386,10 @@ async def on_ready():
     except Exception as e:
         print(f"❌ Sync error: {e}")
 
-    # ===== AUTO BACKUP (PINDAHIN DARI BAWAH) =====
+    # ===== AUTO BACKUP =====
     bot.loop.create_task(auto_backup())
     print("🔄 Auto backup task started")
-    # =============================================
+    # =======================
 
 # ===== FUNGSI KIRIM TOMBOL + / - =====
 async def send_item_buttons(channel, ticket):
@@ -2531,8 +2502,7 @@ async def react_list(interaction: discord.Interaction):
         embed.add_field(name=ch_name, value=f"Emoji: {' '.join(emojis)}", inline=False)
     
     await interaction.response.send_message(embed=embed)
-# ==================== AKHIR AUTO REACTION ====================
-
+# ========================================
 
 
 if __name__ == "__main__":
