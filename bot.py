@@ -2482,7 +2482,6 @@ async def on_message(message):
                 if staff_role:
                     await message.channel.send(f"{staff_role.mention} Ada pembayaran baru!")
     
-    # ===== AUTO REACTION (TAMBAHAN BARU) =====
     # Auto react untuk channel tertentu (cuma admin)
     if hasattr(bot, 'auto_react') and message.channel.id in bot.auto_react.enabled_channels:
         staff_role = discord.utils.get(message.author.roles, name=STAFF_ROLE_NAME)
@@ -2500,6 +2499,9 @@ async def on_ready():
     print(f"Staff Role: {STAFF_ROLE_NAME}")
     global LOG_CHANNEL_ID, active_tickets
     LOG_CHANNEL_ID = None
+    
+    await db.init_db()
+
     load_products()
 
     # Simpan produk ke database (async)
