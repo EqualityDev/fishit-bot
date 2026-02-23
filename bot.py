@@ -886,6 +886,30 @@ async def auto_backup():
             cleanup_old_backups()
             
             logger.info(f"✅ Auto backup berhasil: {backup_name}")
+
+            # Kirim ke Discord
+            for guild in bot.guilds:
+                try:
+                    backup_channel = discord.utils.get(guild.channels, name="backup-db")
+                    if not backup_channel:
+                        staff_role = discord.utils.get(guild.roles, name=STAFF_ROLE_NAME)
+                        overwrites = {
+                            guild.default_role: discord.PermissionOverwrite(read_messages=False),
+                            guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
+                        }
+                        if staff_role:
+                            overwrites[staff_role] = discord.PermissionOverwrite(read_messages=True)
+                        backup_channel = await guild.create_text_channel(
+                            name="backup-db",
+                            overwrites=overwrites,
+                            topic="🔒 Backup otomatis database Cellyn Store"
+                        )
+                    await backup_channel.send(
+                        content=f"🗄️ **AUTO BACKUP**\n📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}\n📦 File: `{backup_name}`",
+                        file=discord.File(backup_name)
+                    )
+                except Exception as e:
+                    logger.error(f"❌ Gagal kirim backup ke Discord: {e}")
             
         except Exception as e:
             logger.error(f"❌ Gagal backup otomatis: {e}")
