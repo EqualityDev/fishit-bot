@@ -757,32 +757,32 @@ async def generate_html_transcript(channel, closed_by):
         }}
         body {{
             font-family: 'Whitney', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            background-color: #36393f;
-            color: #dcddde;
+            background-color: 
+            color: 
             line-height: 1.5;
             padding: 20px;
         }}
         .transcript-container {{
             max-width: 900px;
             margin: 0 auto;
-            background-color: #2f3136;
+            background-color: 
             border-radius: 8px;
             overflow: hidden;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
         }}
         .header {{
-            background-color: #202225;
+            background-color: 
             padding: 20px 25px;
-            border-bottom: 2px solid #40444b;
+            border-bottom: 2px solid 
         }}
         .header h1 {{
-            color: #fff;
+            color: 
             font-size: 24px;
             font-weight: 600;
             margin-bottom: 8px;
         }}
         .header p {{
-            color: #b9bbbe;
+            color: 
             font-size: 14px;
             margin: 3px 0;
         }}
@@ -793,7 +793,7 @@ async def generate_html_transcript(channel, closed_by):
             display: flex;
             margin: 15px 0;
             padding: 5px 0;
-            border-bottom: 1px solid #40444b;
+            border-bottom: 1px solid 
         }}
         .message:last-child {{
             border-bottom: none;
@@ -820,16 +820,16 @@ async def generate_html_transcript(channel, closed_by):
             font-weight: 600;
             font-size: 16px;
         }}
-        .staff .author {{ color: #43b581; }}
-        .bot .author {{ color: #faa61a; }}
-        .user .author {{ color: #7289da; }}
+        .staff .author {{ color: 
+        .bot .author {{ color: 
+        .user .author {{ color: 
         .timestamp {{
-            color: #72767d;
+            color: 
             font-size: 12px;
             font-weight: 400;
         }}
         .content {{
-            color: #dcddde;
+            color: 
             font-size: 15px;
             word-wrap: break-word;
             white-space: pre-wrap;
@@ -838,9 +838,9 @@ async def generate_html_transcript(channel, closed_by):
             margin-top: 8px;
         }}
         .attachment a {{
-            color: #00aff4;
+            color: 
             text-decoration: none;
-            background-color: #40444b;
+            background-color: 
             padding: 4px 10px;
             border-radius: 20px;
             font-size: 13px;
@@ -848,35 +848,35 @@ async def generate_html_transcript(channel, closed_by):
             margin-right: 5px;
         }}
         .attachment a:hover {{
-            background-color: #4f545c;
+            background-color: 
             text-decoration: none;
         }}
         .embed-indicator {{
             display: inline-block;
-            background-color: #40444b;
+            background-color: 
             padding: 4px 12px;
             border-radius: 20px;
             font-size: 13px;
-            color: #dcddde;
+            color: 
             margin-top: 5px;
         }}
         .system-message {{
-            background-color: #40444b;
+            background-color: 
             padding: 12px 15px;
             border-radius: 5px;
-            color: #dcddde;
+            color: 
             font-style: italic;
             margin: 15px 0;
             text-align: center;
-            border-left: 4px solid #5865f2;
+            border-left: 4px solid 
         }}
         .footer {{
-            background-color: #202225;
+            background-color: 
             padding: 15px 25px;
             text-align: center;
-            color: #72767d;
+            color: 
             font-size: 13px;
-            border-top: 2px solid #40444b;
+            border-top: 2px solid 
         }}
         .footer img {{
             vertical-align: middle;
@@ -884,12 +884,12 @@ async def generate_html_transcript(channel, closed_by):
         }}
         .badge {{
             display: inline-block;
-            background-color: #40444b;
+            background-color: 
             padding: 2px 8px;
             border-radius: 12px;
             font-size: 11px;
             margin-left: 8px;
-            color: #b9bbbe;
+            color: 
         }}
     </style>
 </head>
@@ -897,7 +897,7 @@ async def generate_html_transcript(channel, closed_by):
     <div class="transcript-container">
         <div class="header">
             <h1>🎫 Ticket Transcript</h1>
-            <p>📌 Channel: #{html.escape(channel.name)}</p>
+            <p>📌 Channel: 
             <p>🔒 Ditutup oleh: {html.escape(closed_by.display_name)} (@{html.escape(closed_by.name)})</p>
             <p>📅 Tanggal transcript: {datetime.now().strftime('%d %B %Y %H:%M:%S')}</p>
             <p>💬 Total pesan: {len(messages)}</p>
@@ -956,7 +956,7 @@ async def generate_html_transcript(channel, closed_by):
 async def auto_backup():
     """Backup database otomatis setiap 6 jam"""
     while True:
-        await asyncio.sleep(21600)  # 6 jam = 21600 detik
+        await asyncio.sleep(21600)  
         
         try:
             os.makedirs("backups", exist_ok=True)
@@ -970,7 +970,6 @@ async def auto_backup():
             
             logger.info(f"✅ Auto backup berhasil: {backup_name}")
 
-            # Kirim ke Discord
             for guild in bot.guilds:
                 try:
                     backup_channel = discord.utils.get(guild.channels, name="backup-db")
@@ -1001,7 +1000,7 @@ def cleanup_old_backups(days=7):
     """Hapus backup yang lebih dari X hari"""
     try:
         now = datetime.now().timestamp()
-        cutoff = now - (days * 86400)  # 86400 detik per hari
+        cutoff = now - (days * 86400)  
         
         for file in os.listdir("backups"):
             file_path = os.path.join("backups", file)
@@ -1238,7 +1237,7 @@ async def export_transactions(
         await interaction.response.send_message("❌ Admin only!", ephemeral=True)
         return
     
-    await interaction.response.defer(ephemeral=True)  # Biar gak timeout
+    await interaction.response.defer(ephemeral=True)  
     
     try:
         all_trans = await db.get_all_transactions()
@@ -1336,7 +1335,7 @@ async def manual_backup(interaction: discord.Interaction):
         
         shutil.copy2("store.db", backup_name)
         
-        size = os.path.getsize(backup_name) / 1024  # KB
+        size = os.path.getsize(backup_name) / 1024  
         
         await interaction.response.send_message(
             f"✅ **Backup berhasil!**\n"
@@ -1402,7 +1401,6 @@ async def history(interaction: discord.Interaction):
 @bot.tree.command(name="allhistory", description="[ADMIN] Lihat SEMUA riwayat transaksi user")
 @app_commands.describe(user="User yang mau dilihat transaksinya")
 async def all_history(interaction: discord.Interaction, user: discord.User):
-    # Cek admin
     staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
     if staff_role not in interaction.user.roles:
         await interaction.response.send_message("❌ Admin only!", ephemeral=True)
@@ -1410,7 +1408,7 @@ async def all_history(interaction: discord.Interaction, user: discord.User):
     
     user_id = str(user.id)
     
-    all_trans = await db.get_user_transactions(user_id, limit=1000)  # ambil semua
+    all_trans = await db.get_user_transactions(user_id, limit=1000)  
     
 
     
@@ -1590,11 +1588,10 @@ async def catalog(interaction: discord.Interaction):
             all_categories.remove(cat)
 
     category_order.extend(all_categories)
-    # ======================================================
 
     for cat in category_order:
         if cat in categories:
-            items = categories[cat][:5]  # Max 5 produk per kategori
+            items = categories[cat][:5]  
             value = ""
             for item in items:
                 value += f"ID: {item['id']} - {item['name']} - Rp {item['price']:,}\n"
@@ -1679,7 +1676,6 @@ async def broadcast(interaction: discord.Interaction, pesan: str):
         )
         return
 
-    # Bikin embed preview
     embed = discord.Embed(
         title="📢 **✨ PENGUMUMAN CELLYN STORE ✨**",
         description=pesan,
@@ -1690,7 +1686,6 @@ async def broadcast(interaction: discord.Interaction, pesan: str):
     embed.set_image(url="https://i.imgur.com/md5cK3K.png")
     embed.set_footer(text="CELLYN STORE • PREMIUM DIGITAL", icon_url="https://i.imgur.com/55K63yR.png")
 
-    # Kirim preview + tombol konfirmasi
     view = discord.ui.View(timeout=60)
     kirim_btn = discord.ui.Button(label="Kirim", style=discord.ButtonStyle.success)
     batal_btn = discord.ui.Button(label="Batal", style=discord.ButtonStyle.danger)
@@ -1944,7 +1939,6 @@ async def list_items_admin(interaction: discord.Interaction):
 @bot.tree.command(name="fakeinvoice", description="🧪 Generate fake invoice (Admin only)")
 @app_commands.describe(jumlah="Jumlah invoice (1-5)")
 async def fake_invoice(interaction: discord.Interaction, jumlah: int = 1):
-    # Cek admin
     staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
     if staff_role not in interaction.user.roles:
         await interaction.response.send_message("❌ Admin only!", ephemeral=True)
@@ -1990,7 +1984,7 @@ async def fake_invoice(interaction: discord.Interaction, jumlah: int = 1):
     ]
     
     methods = ['DANA', 'BCA', 'QRIS']
-    method_weights = [0.5, 0.3, 0.2]  # 50% DANA, 30% BCA, 20% QRIS
+    method_weights = [0.5, 0.3, 0.2]  
     
     for _ in range(jumlah):
         num_items = random.choices([1, 2, 3], weights=[0.6, 0.3, 0.1])[0]
@@ -2021,7 +2015,7 @@ async def fake_invoice(interaction: discord.Interaction, jumlah: int = 1):
             'total_price': total_price,
             'payment_method': method,
             'admin_id': str(interaction.user.id),
-            'fake': True  # Tandai sebagai fake
+            'fake': True  
         })
         
         print(f"🧪 Fake invoice {invoice_num}: {buyer_name} - Rp {total_price:,} - {method}")
@@ -2559,7 +2553,7 @@ async def on_message(message):
     
     if hasattr(bot, 'auto_react') and message.channel.id in bot.auto_react.enabled_channels:
         staff_role = discord.utils.get(message.author.roles, name=STAFF_ROLE_NAME)
-        if staff_role:  # Hanya untuk admin
+        if staff_role:  
             emoji_list = bot.auto_react.enabled_channels[message.channel.id]
             bot.loop.create_task(bot.auto_react.add_reactions(message, emoji_list))
 
