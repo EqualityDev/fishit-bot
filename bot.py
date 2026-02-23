@@ -2364,6 +2364,8 @@ async def on_interaction(interaction: discord.Interaction):
 async def on_message(message):
     if message.author.bot:
         return
+    if message.guild is None:
+        return
     if str(message.author.id) in blacklist:
         return
     if message.content.lower() == '!cancel' and message.channel.name and message.channel.name.startswith('ticket-'):
