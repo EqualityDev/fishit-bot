@@ -96,6 +96,11 @@ class SimpleDB:
                           reason TEXT,
                           timestamp TEXT)''')
             
+
+            await db.execute('''CREATE TABLE IF NOT EXISTS auto_react_all
+                         (channel_id TEXT PRIMARY KEY,
+                          emojis TEXT)''')
+
             await db.commit()
         print("✓ Database siap (async)")
     
@@ -371,6 +376,45 @@ class SimpleDB:
         except Exception as e:
             print(f"❌ Error load products: {e}")
             return []
+
+    async def save_auto_react_all(self, channel_id, emojis):
+        """Simpan auto_react_all ke database"""
+        try:
+            async with aiosqlite.connect(self.db_name) as db:
+                await db.execute('''INSERT OR REPLACE INTO auto_react_all
+                    (channel_id, emojis) VALUES (?, ?)''',
+                    (str(channel_id), json.dumps(emojis)))
+                await db.commit()
+            return True
+        except Exception as e:
+            print(f"❌ Error save auto_react_all: {e}")
+            return False
+
+    async def delete_auto_react_all(self, channel_id):
+        """Hapus auto_react_all dari database"""
+        try:
+            async with aiosqlite.connect(self.db_name) as db:
+                await db.execute('DELETE FROM auto_react_all WHERE channel_id = ?', (str(channel_id),))
+                await db.commit()
+            return True
+        except Exception as e:
+            print(f"❌ Error delete auto_react_all: {e}")
+            return False
+
+    async def load_auto_react_all(self):
+        """Load auto_react_all dari database"""
+        try:
+            async with aiosqlite.connect(self.db_name) as db:
+                cursor = await db.execute('SELECT channel_id, emojis FROM auto_react_all')
+                rows = await cursor.fetchall()
+            result = {}
+            for row in rows:
+                result[int(row[0])] = json.loads(row[1])
+            print(f"✓ Loaded {len(result)} auto_react_all from database")
+            return result
+        except Exception as e:
+            print(f"❌ Error load auto_react_all: {e}")
+            return {}
 
 class ProductsCache:
     def __init__(self):
@@ -2483,6 +2527,13 @@ async def on_ready():
         active_tickets = {}
 
     try:
+        bot.auto_react_all = await db.load_auto_react_all()
+        print(f"✓ Loaded {len(bot.auto_react_all)} auto_react_all from database")
+    except Exception as e:
+        print(f"❌ Error loading auto_react_all: {e}")
+        bot.auto_react_all = {}
+
+    try:
         synced = await bot.tree.sync()
         print(f"✓ Commands synced: {len(synced)}")
 
@@ -2601,6 +2652,7 @@ async def set_react_all(interaction: discord.Interaction, emojis: str = None, di
     if disable:
         if hasattr(bot, 'auto_react_all') and channel_id in bot.auto_react_all:
             del bot.auto_react_all[channel_id]
+            await db.delete_auto_react_all(channel_id)
             await interaction.response.send_message(f"✅ Auto-react all dimatikan di {interaction.channel.mention}")
         else:
             await interaction.response.send_message("❌ Auto-react all gak aktif di sini", ephemeral=True)
@@ -2609,9 +2661,7 @@ async def set_react_all(interaction: discord.Interaction, emojis: str = None, di
     if not emojis:
         if hasattr(bot, 'auto_react_all') and channel_id in bot.auto_react_all:
             emoji_list = bot.auto_react_all[channel_id]
-            await interaction.response.send_message(f"📊 **Auto-react all aktif**
-Channel: {interaction.channel.mention}
-Emoji: {' '.join(emoji_list)}")
+            await interaction.response.send_message(f"📊 **Auto-react all aktif**\nChannel: {interaction.channel.mention}\nEmoji: {' '.join(emoji_list)}")
         else:
             await interaction.response.send_message("❌ Auto-react all tidak aktif. Gunakan `/setreactall ❤️ 🔥 🚀`")
         return
@@ -2621,10 +2671,9 @@ Emoji: {' '.join(emoji_list)}")
 
     emoji_list = emojis.split()[:20]
     bot.auto_react_all[channel_id] = emoji_list
+    await db.save_auto_react_all(channel_id, emoji_list)
 
-    await interaction.response.send_message(f"✅ **Auto-react all diaktifkan!**
-Channel: {interaction.channel.mention}
-Emoji: {' '.join(emoji_list)}")
+    await interaction.response.send_message(f"✅ **Auto-react all diaktifkan!**\nChannel: {interaction.channel.mention}\nEmoji: {" ".join(emoji_list)}")
 
 
 @bot.tree.command(name="reactlist", description="[ADMIN] Lihat daftar channel auto-react")
