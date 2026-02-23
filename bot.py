@@ -1096,6 +1096,7 @@ async def reset_database(interaction: discord.Interaction):
         
         os.remove("store.db")
         db = SimpleDB()  # Init ulang
+        await db.init_db()
         
         await interaction.response.edit_message(
             content=f"✅ Database telah direset!\n📁 Backup otomatis: `{backup_name}`",
