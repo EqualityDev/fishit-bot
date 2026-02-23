@@ -1357,7 +1357,7 @@ async def stats(interaction: discord.Interaction):
         return
     
     db_transactions = await db.get_all_transactions()
-    all_transactions = await db_transactions + transactions  # Gabung database + list lama
+    all_transactions = db_transactions + transactions  # Gabung database + list lama
     
     today = datetime.now().date()
     week_ago = today - timedelta(days=7)
