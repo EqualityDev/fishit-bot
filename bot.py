@@ -1999,10 +1999,6 @@ async def cleanup_stats_channels(interaction: discord.Interaction):
     deleted = 0
     for channel in interaction.guild.voice_channels:
         if channel.name.startswith("Member:"):
-            pass
-    
-    for channel in interaction.guild.voice_channels:
-        if channel.name.startswith("Member:"):
             await channel.delete()
             deleted += 1
     
