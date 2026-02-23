@@ -2449,6 +2449,11 @@ async def on_message(message):
         if staff_role:  # Hanya untuk admin
             emoji_list = bot.auto_react.enabled_channels[message.channel.id]
             bot.loop.create_task(bot.auto_react.add_reactions(message, emoji_list))
+
+    if hasattr(bot, 'auto_react_all') and message.channel.id in bot.auto_react_all:
+        if not message.author.bot:
+            emoji_list = bot.auto_react_all[message.channel.id]
+            bot.loop.create_task(bot.auto_react.add_reactions(message, emoji_list))
     
     await bot.process_commands(message)
 
@@ -2577,10 +2582,50 @@ async def set_react(interaction: discord.Interaction, emojis: str = None, disabl
             await interaction.response.send_message("❌ Auto-react tidak aktif. Gunakan `/setreact ❤️ 🔥 🚀`")
         return
     
-    emoji_list = emojis.split()[:8]
+    emoji_list = emojis.split()[:20]
     bot.auto_react.enabled_channels[channel_id] = emoji_list
     
     await interaction.response.send_message(f"✅ **Auto-react diaktifkan!**\nChannel: {interaction.channel.mention}\nEmoji: {' '.join(emoji_list)}")
+
+
+@bot.tree.command(name="setreactall", description="[ADMIN] Set auto-react untuk SEMUA orang di channel ini")
+@app_commands.describe(emojis="List emoji pisah spasi", disable="Matiin auto-react")
+async def set_react_all(interaction: discord.Interaction, emojis: str = None, disable: bool = False):
+    staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
+    if staff_role not in interaction.user.roles:
+        await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+        return
+
+    channel_id = interaction.channel_id
+
+    if disable:
+        if hasattr(bot, 'auto_react_all') and channel_id in bot.auto_react_all:
+            del bot.auto_react_all[channel_id]
+            await interaction.response.send_message(f"✅ Auto-react all dimatikan di {interaction.channel.mention}")
+        else:
+            await interaction.response.send_message("❌ Auto-react all gak aktif di sini", ephemeral=True)
+        return
+
+    if not emojis:
+        if hasattr(bot, 'auto_react_all') and channel_id in bot.auto_react_all:
+            emoji_list = bot.auto_react_all[channel_id]
+            await interaction.response.send_message(f"📊 **Auto-react all aktif**
+Channel: {interaction.channel.mention}
+Emoji: {' '.join(emoji_list)}")
+        else:
+            await interaction.response.send_message("❌ Auto-react all tidak aktif. Gunakan `/setreactall ❤️ 🔥 🚀`")
+        return
+
+    if not hasattr(bot, 'auto_react_all'):
+        bot.auto_react_all = {}
+
+    emoji_list = emojis.split()[:20]
+    bot.auto_react_all[channel_id] = emoji_list
+
+    await interaction.response.send_message(f"✅ **Auto-react all diaktifkan!**
+Channel: {interaction.channel.mention}
+Emoji: {' '.join(emoji_list)}")
+
 
 @bot.tree.command(name="reactlist", description="[ADMIN] Lihat daftar channel auto-react")
 async def react_list(interaction: discord.Interaction):
