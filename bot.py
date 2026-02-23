@@ -1605,6 +1605,7 @@ async def broadcast(interaction: discord.Interaction, pesan: str):
         try:
             await member.send(embed=embed)
             success += 1
+            await asyncio.sleep(0.5)
         except:
             failed += 1
     
