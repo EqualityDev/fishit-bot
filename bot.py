@@ -31,7 +31,6 @@ BCA_NUMBER = "8565330655"
 RATE = 85
 
 active_tickets = {}
-transactions = []
 invoice_counter = 1000
 blacklist = set()
 user_transaction_count = {}
@@ -556,7 +555,6 @@ async def send_invoice(guild, transaction_data):
     invoice_num = generate_invoice_number()
     transaction_data['invoice'] = invoice_num
     transaction_data['timestamp'] = datetime.now()
-    transactions.append(transaction_data)
     
     if not transaction_data.get('fake', False):
         try:
@@ -1059,7 +1057,7 @@ async def stats_detail(interaction: discord.Interaction):
         await interaction.response.send_message("❌ Admin only!", ephemeral=True)
         return
     
-    all_trans = await db.get_all_transactions() + transactions
+    all_trans = await db.get_all_transactions()
     
 
     real_trans = [t for t in all_trans if not t.get('fake')]
@@ -1163,7 +1161,6 @@ async def export_transactions(
     try:
         all_trans = await db.get_all_transactions()
         
-        all_trans = all_trans + transactions
         
         if filter_user:
             user_id = str(filter_user.id)
@@ -1275,15 +1272,14 @@ async def history(interaction: discord.Interaction):
     
     user_transactions = await db.get_user_transactions(user_id, limit=5)
     
-    if not user_transactions:
-        user_transactions = [t for t in transactions if t['user_id'] == user_id][-5:]
+
     
     if not user_transactions:
         await interaction.response.send_message("Belum ada transaksi.", ephemeral=True)
         return
     
     all_user = await db.get_user_transactions(user_id, limit=1000)
-    total_trans = len(all_user) if all_user else len([t for t in transactions if t['user_id'] == user_id])
+    total_trans = len(all_user)
     
     last_5 = user_transactions[-5:]
     embed = discord.Embed(
@@ -1334,8 +1330,7 @@ async def all_history(interaction: discord.Interaction, user: discord.User):
     
     all_trans = await db.get_user_transactions(user_id, limit=1000)  # ambil semua
     
-    if not all_trans:
-        all_trans = [t for t in transactions if t['user_id'] == user_id]
+
     
     if not all_trans:
         await interaction.response.send_message(f"📝 {user.mention} belum punya transaksi.", ephemeral=True)
@@ -1388,8 +1383,7 @@ async def stats(interaction: discord.Interaction):
         await interaction.response.send_message("Admin only!", ephemeral=True)
         return
     
-    db_transactions = await db.get_all_transactions()
-    all_transactions = db_transactions + transactions  # Gabung database + list lama
+    all_transactions = await db.get_all_transactions()
     
     today = datetime.now().date()
     week_ago = today - timedelta(days=7)
