@@ -470,11 +470,12 @@ async def get_log_channel(guild):
     
     if LOG_CHANNEL_ID is None:
         LOG_CHANNEL_ID = os.getenv('LOG_CHANNEL_ID')
-            try:
-                LOG_CHANNEL_ID = int(LOG_CHANNEL_ID)
-            except:
-                LOG_CHANNEL_ID = None
+        try:
+            LOG_CHANNEL_ID = int(LOG_CHANNEL_ID)
+        except:
+            LOG_CHANNEL_ID = None
     
+    if LOG_CHANNEL_ID:
         channel = guild.get_channel(LOG_CHANNEL_ID)
         if channel and isinstance(channel, discord.TextChannel):
             return channel
