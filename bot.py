@@ -538,7 +538,14 @@ def update_env_file(key_value):
 
 def generate_invoice_number():
     global invoice_counter
+    try:
+        with open('invoice_counter.txt', 'r') as f:
+            invoice_counter = int(f.read().strip())
+    except:
+        invoice_counter = 1000
     invoice_counter += 1
+    with open('invoice_counter.txt', 'w') as f:
+        f.write(str(invoice_counter))
     today = datetime.now().strftime("%Y%m%d")
     return f"INV-{today}-{invoice_counter:04d}"
 
