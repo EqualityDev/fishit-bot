@@ -470,13 +470,11 @@ async def get_log_channel(guild):
     
     if LOG_CHANNEL_ID is None:
         LOG_CHANNEL_ID = os.getenv('LOG_CHANNEL_ID')
-        if LOG_CHANNEL_ID:
             try:
                 LOG_CHANNEL_ID = int(LOG_CHANNEL_ID)
             except:
                 LOG_CHANNEL_ID = None
     
-    if LOG_CHANNEL_ID:
         channel = guild.get_channel(LOG_CHANNEL_ID)
         if channel and isinstance(channel, discord.TextChannel):
             return channel
@@ -2356,26 +2354,28 @@ async def on_interaction(interaction: discord.Interaction):
             html_file = await generate_html_transcript(interaction.channel, interaction.user)
             print(f"✅ TRANSCRIPT BERHASIL: {html_file}")
         
-            log_channel = None
         
-            if LOG_CHANNEL_ID:
-                log_channel = interaction.guild.get_channel(LOG_CHANNEL_ID)
-                print(f"COBA CHANNEL ID: {LOG_CHANNEL_ID} -> {log_channel}")
         
-            if not log_channel:
-                log_channel = discord.utils.get(interaction.guild.channels, name="log-transaksi")
-                print(f"FALLBACK KE NAMA: log-transaksi -> {log_channel}")
-        
-            print(f"LOG CHANNEL FINAL: {log_channel}")
-        
-            if log_channel:
-                await log_channel.send(
+            backup_channel = discord.utils.get(interaction.guild.channels, name="backup-db")
+            if not backup_channel:
+                staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
+                overwrites = {
+                    interaction.guild.default_role: discord.PermissionOverwrite(read_messages=False),
+                    interaction.guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
+                }
+                if staff_role:
+                    overwrites[staff_role] = discord.PermissionOverwrite(read_messages=True)
+                backup_channel = await interaction.guild.create_text_channel(
+                    name="backup-db",
+                    overwrites=overwrites,
+                    topic="🔒 Backup otomatis database Cellyn Store"
+                )
+            if backup_channel:
+                await backup_channel.send(
                     content=f"📁 **HTML Transcript**\nChannel: {interaction.channel.name}\nDitutup oleh: {interaction.user.mention}\nInvoice: `{invoice_num}`",
                     file=discord.File(html_file)
                 )
-                print("✅ TRANSCRIPT TERKIRIM KE LOG")
-            else:
-                print("❌ LOG CHANNEL TIDAK DITEMUKAN")
+                print("✅ TRANSCRIPT TERKIRIM KE backup-db")
             
         except Exception as e:
             print(f"❌ ERROR DI TRANSCRIPT: {e}")
