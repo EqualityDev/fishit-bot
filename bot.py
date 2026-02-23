@@ -101,6 +101,11 @@ class SimpleDB:
                          (channel_id TEXT PRIMARY KEY,
                           emojis TEXT)''')
 
+
+            await db.execute('''CREATE TABLE IF NOT EXISTS auto_react
+                         (channel_id TEXT PRIMARY KEY,
+                          emojis TEXT)''')
+
             await db.commit()
         print("✓ Database siap (async)")
     
@@ -410,10 +415,47 @@ class SimpleDB:
             result = {}
             for row in rows:
                 result[int(row[0])] = json.loads(row[1])
-            print(f"✓ Loaded {len(result)} auto_react_all from database")
             return result
         except Exception as e:
             print(f"❌ Error load auto_react_all: {e}")
+            return {}
+
+    async def save_auto_react(self, channel_id, emojis):
+        """Simpan auto_react ke database"""
+        try:
+            async with aiosqlite.connect(self.db_name) as db:
+                await db.execute('''INSERT OR REPLACE INTO auto_react
+                    (channel_id, emojis) VALUES (?, ?)''',
+                    (str(channel_id), json.dumps(emojis)))
+                await db.commit()
+            return True
+        except Exception as e:
+            print(f"❌ Error save auto_react: {e}")
+            return False
+
+    async def delete_auto_react(self, channel_id):
+        """Hapus auto_react dari database"""
+        try:
+            async with aiosqlite.connect(self.db_name) as db:
+                await db.execute('DELETE FROM auto_react WHERE channel_id = ?', (str(channel_id),))
+                await db.commit()
+            return True
+        except Exception as e:
+            print(f"❌ Error delete auto_react: {e}")
+            return False
+
+    async def load_auto_react(self):
+        """Load auto_react dari database"""
+        try:
+            async with aiosqlite.connect(self.db_name) as db:
+                cursor = await db.execute('SELECT channel_id, emojis FROM auto_react')
+                rows = await cursor.fetchall()
+            result = {}
+            for row in rows:
+                result[int(row[0])] = json.loads(row[1])
+            return result
+        except Exception as e:
+            print(f"❌ Error load auto_react: {e}")
             return {}
 
 class ProductsCache:
@@ -2503,6 +2545,10 @@ async def on_message(message):
 
 @bot.event
 async def on_ready():
+    if hasattr(bot, "_ready_called"):
+        return
+    bot._ready_called = True
+
     print(f"BOT READY - {bot.user}")
     print(f"Server: {len(bot.guilds)}")
     print(f"Staff Role: {STAFF_ROLE_NAME}")
@@ -2530,6 +2576,14 @@ async def on_ready():
         bot.auto_react_all = await db.load_auto_react_all()
         print(f"✓ Loaded {len(bot.auto_react_all)} auto_react_all from database")
     except Exception as e:
+        print(f"❌ Error loading auto_react_all: {e}")
+
+    try:
+        loaded = await db.load_auto_react()
+        bot.auto_react.enabled_channels = loaded
+        print(f"✓ Loaded {len(loaded)} auto_react from database")
+    except Exception as e:
+        print(f"❌ Error loading auto_react: {e}")
         print(f"❌ Error loading auto_react_all: {e}")
         bot.auto_react_all = {}
 
@@ -2620,6 +2674,7 @@ async def set_react(interaction: discord.Interaction, emojis: str = None, disabl
     if disable:
         if channel_id in bot.auto_react.enabled_channels:
             del bot.auto_react.enabled_channels[channel_id]
+            await db.delete_auto_react(channel_id)
             await interaction.response.send_message(f"✅ Auto-react dimatikan di {interaction.channel.mention}")
         else:
             await interaction.response.send_message("❌ Auto-react gak aktif di sini", ephemeral=True)
@@ -2635,6 +2690,7 @@ async def set_react(interaction: discord.Interaction, emojis: str = None, disabl
     
     emoji_list = emojis.split()[:20]
     bot.auto_react.enabled_channels[channel_id] = emoji_list
+    await db.save_auto_react(channel_id, emoji_list)
     
     await interaction.response.send_message(f"✅ **Auto-react diaktifkan!**\nChannel: {interaction.channel.mention}\nEmoji: {' '.join(emoji_list)}")
 
