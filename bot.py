@@ -1182,47 +1182,44 @@ async def stats_detail(interaction: discord.Interaction):
     
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="resetdb", description="[ADMIN] Reset database (hapus semua transaksi)")
-async def reset_database(interaction: discord.Interaction):
+class ResetDBModal(discord.ui.Modal, title="Konfirmasi Reset Database"):
+    confirm_input = discord.ui.TextInput(
+        label='Ketik CONFIRM untuk mereset database',
+        placeholder='CONFIRM',
+        required=True,
+        max_length=10
+    )
 
-    staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
-    if staff_role not in interaction.user.roles:
-        await interaction.response.send_message("❌ Admin only!", ephemeral=True)
-        return
-    
-    view = discord.ui.View()
-    confirm = discord.ui.Button(label="✅ YA, Reset!", style=discord.ButtonStyle.danger)
-    cancel = discord.ui.Button(label="❌ Batal", style=discord.ButtonStyle.secondary)
-    
-    async def confirm_callback(interaction):
+    async def on_submit(self, interaction: discord.Interaction):
+        if self.confirm_input.value.strip() != "CONFIRM":
+            await interaction.response.send_message("❌ Konfirmasi salah, reset dibatalkan.", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_name = f"backups/pre_reset_backup_{timestamp}.db"
         os.makedirs("backups", exist_ok=True)
         shutil.copy2("store.db", backup_name)
-        
+
         os.remove("store.db")
-        db = SimpleDB()  # Init ulang
-        await db.init_db()
-        
-        await interaction.response.edit_message(
-            content=f"✅ Database telah direset!\n📁 Backup otomatis: `{backup_name}`",
-            view=None
+        db_new = SimpleDB()
+        await db_new.init_db()
+
+        await interaction.followup.send(
+            f"✅ Database telah direset!\n📁 Backup otomatis: `{backup_name}`",
+            ephemeral=True
         )
-    
-    async def cancel_callback(interaction):
-        await interaction.response.edit_message(content="❌ Reset dibatalkan.", view=None)
-    
-    confirm.callback = confirm_callback
-    cancel.callback = cancel_callback
-    view.add_item(confirm)
-    view.add_item(cancel)
-    
-    await interaction.response.send_message(
-        "⚠️ **PERINGATAN!**\nIni akan menghapus SEMUA transaksi! Yakin?",
-        view=view,
-        ephemeral=True
-    )
+
+@bot.tree.command(name="resetdb", description="[ADMIN] Reset database (hapus semua transaksi)")
+async def reset_database(interaction: discord.Interaction):
+    staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
+    if staff_role not in interaction.user.roles:
+        await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+        return
+
+    modal = ResetDBModal()
+    await interaction.response.send_modal(modal)
 
 @bot.tree.command(name="export", description="[ADMIN] Export transaksi ke file CSV")
 @app_commands.describe(
@@ -1659,22 +1656,21 @@ async def help_command(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
     
 @bot.tree.command(name="broadcast", description="📢 Kirim pesan ke semua member (Admin only)")
-@app_commands.describe(pesan="isi Pesan yang mau dikirim ke semua member")
+@app_commands.describe(pesan="Pesan yang akan dikirim ke semua member")
 async def broadcast(interaction: discord.Interaction, pesan: str):
     staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
     if staff_role not in interaction.user.roles:
         await interaction.response.send_message("❌ Hanya admin yang bisa broadcast!", ephemeral=True)
         return
-    
+
     user_id = str(interaction.user.id)
     last_used = broadcast_cooldown.get(user_id, 0)
     current_time = time.time()
-    
-    if current_time - last_used < 86400:  # 24 jam
+
+    if current_time - last_used < 86400:
         remaining = 86400 - (current_time - last_used)
         jam = int(remaining // 3600)
         menit = int((remaining % 3600) // 60)
-        
         await interaction.response.send_message(
             f"⏱️ Broadcast cuma bisa sekali per hari!\n"
             f"🕐 Sisa waktu: **{jam} jam {menit} menit**",
@@ -1682,48 +1678,65 @@ async def broadcast(interaction: discord.Interaction, pesan: str):
             delete_after=10
         )
         return
-    
-    broadcast_cooldown[user_id] = current_time
-    
-    with open('broadcast_cooldown.json', 'w') as f:
-        json.dump(broadcast_cooldown, f)
-    
-    await interaction.response.send_message(f"📢 Mengirim broadcast ke semua member...", ephemeral=True, delete_after=4)
-    
-    success = 0
-    failed = 0
-    
+
+    # Bikin embed preview
     embed = discord.Embed(
         title="📢 **✨ PENGUMUMAN CELLYN STORE ✨**",
-        description=f"{pesan}",
+        description=pesan,
         color=0x00ff00,
         timestamp=datetime.now()
     )
-    
     embed.set_thumbnail(url="https://i.imgur.com/55K63yR.png")
-    
     embed.set_image(url="https://i.imgur.com/md5cK3K.png")
-    
-    embed.set_footer(
-        text="CELLYN STORE • PREMIUM DIGITAL",
-        icon_url="https://i.imgur.com/55K63yR.png"
-    )
-    
-    for member in interaction.guild.members:
-        if member.bot:
-            continue
-        
-        try:
-            await member.send(embed=embed)
-            success += 1
-            await asyncio.sleep(0.5)
-        except:
-            failed += 1
-    
-    await interaction.followup.send(
-        f"✅ Broadcast selesai!\n"
-        f"📨 Terkirim: **{success}** member\n"
-        f"❌ Gagal: **{failed}** member (DM tertutup/bot)",
+    embed.set_footer(text="CELLYN STORE • PREMIUM DIGITAL", icon_url="https://i.imgur.com/55K63yR.png")
+
+    # Kirim preview + tombol konfirmasi
+    view = discord.ui.View(timeout=60)
+    kirim_btn = discord.ui.Button(label="Kirim", style=discord.ButtonStyle.success)
+    batal_btn = discord.ui.Button(label="Batal", style=discord.ButtonStyle.danger)
+
+    async def kirim_callback(btn_interaction: discord.Interaction):
+        if btn_interaction.user.id != interaction.user.id:
+            await btn_interaction.response.send_message("❌ Bukan hakmu!", ephemeral=True)
+            return
+
+        await btn_interaction.response.edit_message(content="📢 Mengirim broadcast...", embed=None, view=None)
+
+        broadcast_cooldown[user_id] = current_time
+        with open("broadcast_cooldown.json", "w") as f:
+            json.dump(broadcast_cooldown, f)
+
+        success = 0
+        failed = 0
+        for member in btn_interaction.guild.members:
+            if member.bot:
+                continue
+            try:
+                await member.send(embed=embed)
+                success += 1
+                await asyncio.sleep(0.5)
+            except:
+                failed += 1
+
+        await btn_interaction.edit_original_response(
+            content=f"✅ Broadcast selesai! Terkirim: **{success}**, Gagal: **{failed}**"
+        )
+
+    async def batal_callback(btn_interaction: discord.Interaction):
+        if btn_interaction.user.id != interaction.user.id:
+            await btn_interaction.response.send_message("❌ Bukan hakmu!", ephemeral=True)
+            return
+        await btn_interaction.response.edit_message(content="❌ Broadcast dibatalkan.", embed=None, view=None)
+
+    kirim_btn.callback = kirim_callback
+    batal_btn.callback = batal_callback
+    view.add_item(kirim_btn)
+    view.add_item(batal_btn)
+
+    await interaction.response.send_message(
+        content="**Preview broadcast — cek dulu sebelum kirim:**",
+        embed=embed,
+        view=view,
         ephemeral=True
     )
 
@@ -2072,23 +2085,37 @@ async def add_item_to_ticket(interaction: discord.Interaction, item_id: int, qty
     embed.add_field(name="💰 TOTAL", value=f"Rp {ticket['total_price']:,}", inline=False)
     await interaction.response.send_message(embed=embed)
 
+class CleanupConfirmModal(discord.ui.Modal, title="Konfirmasi Cleanup Stats"):
+    confirm_input = discord.ui.TextInput(
+        label='Ketik CONFIRM untuk melanjutkan',
+        placeholder='CONFIRM',
+        required=True,
+        max_length=10
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        if self.confirm_input.value.strip() != "CONFIRM":
+            await interaction.response.send_message("❌ Konfirmasi salah, cleanup dibatalkan.", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+        deleted = 0
+        for channel in interaction.guild.voice_channels:
+            if channel.name.startswith("Member:"):
+                await channel.delete()
+                deleted += 1
+
+        await interaction.followup.send(f"✅ {deleted} channel stats telah dibersihkan. Channel baru akan dibuat otomatis.")
+
 @bot.tree.command(name="cleanupstats", description="[ADMIN] Bersihin voice channel stats duplikat")
 async def cleanup_stats_channels(interaction: discord.Interaction):
-    # Cek admin
     staff_role = discord.utils.get(interaction.user.roles, name=STAFF_ROLE_NAME)
     if staff_role not in interaction.user.roles:
         await interaction.response.send_message("❌ Admin only!", ephemeral=True)
         return
-    
-    await interaction.response.defer(ephemeral=True)
-    
-    deleted = 0
-    for channel in interaction.guild.voice_channels:
-        if channel.name.startswith("Member:"):
-            await channel.delete()
-            deleted += 1
-    
-    await interaction.followup.send(f"✅ {deleted} channel stats telah dibersihkan. Channel baru akan dibuat otomatis.")
+
+    modal = CleanupConfirmModal()
+    await interaction.response.send_modal(modal)
 
 @bot.tree.command(name="removeitem", description="➖ Hapus item dari tiket ini")
 @app_commands.describe(item_id="ID item", qty="Jumlah yang dihapus (default semua)")
@@ -2739,16 +2766,29 @@ async def react_list(interaction: discord.Interaction):
         await interaction.response.send_message("❌ Admin only!", ephemeral=True)
         return
     
-    if not bot.auto_react.enabled_channels:
+    has_react = bool(bot.auto_react.enabled_channels)
+    has_react_all = hasattr(bot, "auto_react_all") and bool(bot.auto_react_all)
+
+    if not has_react and not has_react_all:
         await interaction.response.send_message("📝 Belum ada channel dengan auto-react")
         return
-    
+
     embed = discord.Embed(title="📊 AUTO-REACT ACTIVE CHANNELS", color=0x00ff00)
-    for ch_id, emojis in bot.auto_react.enabled_channels.items():
-        channel = interaction.guild.get_channel(ch_id)
-        ch_name = channel.mention if channel else f"Unknown ({ch_id})"
-        embed.add_field(name=ch_name, value=f"Emoji: {' '.join(emojis)}", inline=False)
-    
+
+    if has_react:
+        embed.add_field(name="🔹 /setreact (Admin only)", value="​", inline=False)
+        for ch_id, emojis in bot.auto_react.enabled_channels.items():
+            channel = interaction.guild.get_channel(ch_id)
+            ch_name = channel.mention if channel else f"Unknown ({ch_id})"
+            embed.add_field(name=ch_name, value=f"Emoji: {' '.join(emojis)}", inline=False)
+
+    if has_react_all:
+        embed.add_field(name="🔸 /setreactall (Semua user)", value="​", inline=False)
+        for ch_id, emojis in bot.auto_react_all.items():
+            channel = interaction.guild.get_channel(ch_id)
+            ch_name = channel.mention if channel else f"Unknown ({ch_id})"
+            embed.add_field(name=ch_name, value=f"Emoji: {' '.join(emojis)}", inline=False)
+
     await interaction.response.send_message(embed=embed)
 
 
