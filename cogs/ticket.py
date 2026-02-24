@@ -1,5 +1,6 @@
 import asyncio
 import random
+import aiosqlite
 import discord
 from discord.ext import commands
 from datetime import datetime
@@ -141,25 +142,41 @@ class TicketCog(commands.Cog):
             self.bot.active_tickets[str(channel.id)] = ticket
 
             embed = discord.Embed(
-                title="🧾 TIKET PEMBELIAN",
-                description=(
-                    f"{user.mention}, tiket kamu sudah dibuat!\n\n"
-                    f"**📦 Item:** {item['name']}\n"
-                    f"**💰 Harga:** Rp {item['price']:,}\n\n"
-                    f"Pilih metode pembayaran:\n"
-                    f"**1** — QRIS  |  **2** — DANA  |  **3** — BCA\n\n"
-                    f"Ketik angka **1**, **2**, atau **3** untuk lanjut.\n"
-                    f"Ketik `!cancel` untuk batalkan."
-                ),
+                title="TIKET PEMBELIAN",
                 color=0x2B2D31,
             )
+            embed.add_field(name="Customer", value=user.mention, inline=True)
+            embed.add_field(name="Item", value=item['name'], inline=True)
+            embed.add_field(name="Harga", value=f"Rp {item['price']:,}", inline=True)
+            embed.add_field(
+                name="Metode Pembayaran",
+                value="Ketik **1** — QRIS  |  **2** — DANA  |  **3** — BCA",
+                inline=False,
+            )
+            embed.add_field(
+                name="Qty",
+                value="Gunakan tombol + / - di bawah untuk ubah jumlah item.",
+                inline=False,
+            )
             embed.set_thumbnail(url=STORE_THUMBNAIL)
-            embed.set_footer(text="CELLYN STORE • PREMIUM DIGITAL", icon_url=STORE_THUMBNAIL)
+            embed.set_footer(text="CELLYN STORE • Ketik !cancel untuk batalkan", icon_url=STORE_THUMBNAIL)
 
-            await channel.send(embed=embed)
+            qty_view = discord.ui.View()
+            qty_view.add_item(discord.ui.Button(
+                label=f"+ {item['name'][:20]}",
+                style=discord.ButtonStyle.primary,
+                custom_id=f"ticket_add_{item['id']}",
+            ))
+            qty_view.add_item(discord.ui.Button(
+                label=f"- {item['name'][:20]}",
+                style=discord.ButtonStyle.danger,
+                custom_id=f"ticket_remove_{item['id']}",
+            ))
+
+            await channel.send(embed=embed, view=qty_view)
 
             if staff_role:
-                await channel.send(f"📢 {staff_role.mention} tiket baru dari {user.mention}!")
+                await channel.send(f"Tiket baru dari {user.mention} | {staff_role.mention}")
 
             await interaction.followup.send(
                 f"✅ Tiket dibuat! {channel.mention}", ephemeral=True
@@ -358,20 +375,58 @@ class TicketCog(commands.Cog):
                 await self.bot.db.update_ticket_status(channel_id, "OPEN", method)
 
                 if method == "QRIS":
-                    await message.channel.send("Gunakan /qris untuk melihat QR code")
+                    qris_url = None
+                    try:
+                        async with aiosqlite.connect(self.bot.db.db_name) as db:
+                            cursor = await db.execute("SELECT value FROM settings WHERE key = 'qris_url'")
+                            row = await cursor.fetchone()
+                            if row:
+                                qris_url = row[0]
+                    except Exception:
+                        pass
+                    embed = discord.Embed(
+                        title="QRIS PAYMENT",
+                        description=(
+                            f"Scan QR Code di bawah untuk membayar.\n\n"
+                            f"**Total: Rp {total:,}**\n\n"
+                            f"Setelah transfer, kirim **bukti pembayaran** (screenshot) di sini,\n"
+                            f"lalu klik tombol **PAID** di bawah."
+                        ),
+                        color=0x00FF00,
+                    )
+                    if qris_url:
+                        embed.set_image(url=qris_url)
+                    embed.set_footer(text="CELLYN STORE • Pastikan nominal sesuai")
+                    await message.channel.send(embed=embed)
+
                 elif method == "DANA":
                     embed = discord.Embed(
-                        title="DANA",
-                        description=f"Transfer ke:\n`{DANA_NUMBER}`\n\n**TOTAL: Rp {total:,}**",
-                        color=0x00FF00,
+                        title="DANA PAYMENT",
+                        description=(
+                            f"Transfer ke nomor DANA berikut:\n\n"
+                            f"**`{DANA_NUMBER}`**\n\n"
+                            f"**Total: Rp {total:,}**\n\n"
+                            f"Setelah transfer, kirim **bukti pembayaran** (screenshot) di sini,\n"
+                            f"lalu klik tombol **PAID** di bawah."
+                        ),
+                        color=0x118EEA,
                     )
+                    embed.set_footer(text="CELLYN STORE • Pastikan nominal sesuai")
                     await message.channel.send(embed=embed)
+
                 elif method == "BCA":
                     embed = discord.Embed(
-                        title="BCA",
-                        description=f"Transfer ke:\n`{BCA_NUMBER}`\n\n**TOTAL: Rp {total:,}**",
-                        color=0x00FF00,
+                        title="BCA PAYMENT",
+                        description=(
+                            f"Transfer ke rekening BCA berikut:\n\n"
+                            f"**`{BCA_NUMBER}`**\n\n"
+                            f"**Total: Rp {total:,}**\n\n"
+                            f"Setelah transfer, kirim **bukti pembayaran** (screenshot) di sini,\n"
+                            f"lalu klik tombol **PAID** di bawah."
+                        ),
+                        color=0x005BAC,
                     )
+                    embed.set_footer(text="CELLYN STORE • Pastikan nominal sesuai")
                     await message.channel.send(embed=embed)
 
                 await message.channel.send(
