@@ -37,7 +37,6 @@ bot.auto_react_all = {}
 
 async def auto_backup():
     while True:
-        await asyncio.sleep(21600)
         try:
             os.makedirs(BACKUP_DIR, exist_ok=True)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -69,6 +68,8 @@ async def auto_backup():
                     logger.error(f"❌ Gagal kirim backup ke Discord: {e}")
         except Exception as e:
             logger.error(f"❌ Gagal auto backup: {e}")
+
+        await asyncio.sleep(21600)
 
 
 async def update_member_count(guild):
@@ -109,8 +110,18 @@ async def on_ready():
     logger.info(f"BOT READY — {bot.user} | Servers: {len(bot.guilds)}")
 
     await bot.db.init_db()
-    bot.PRODUCTS = load_products_json()
-    await bot.db.save_products(bot.PRODUCTS)
+
+    # DB sebagai single source of truth
+    # Load dari JSON hanya jika DB kosong (instalasi pertama)
+    db_products = await bot.db.load_products()
+    if not db_products:
+        bot.PRODUCTS = load_products_json()
+        await bot.db.save_products(bot.PRODUCTS)
+        print("✓ Instalasi pertama: produk diimport dari products.json")
+    else:
+        bot.PRODUCTS = db_products
+        print(f"✓ Load {len(bot.PRODUCTS)} products from database")
+
     await bot.products_cache.load_from_db()
 
     await asyncio.sleep(2)

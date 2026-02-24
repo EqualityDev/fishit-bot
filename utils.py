@@ -64,13 +64,25 @@ def generate_invoice_number(db=None):
     with open(INVOICE_COUNTER_FILE, "w") as f:
         f.write(json.dumps({"date": today, "counter": counter}))
     return f"INV-{today}-{counter:04d}"
-
-
 async def send_invoice(guild, transaction_data, db):
     channel = await get_log_channel(guild)
     user = guild.get_member(int(transaction_data["user_id"]))
     user_name = user.display_name if user else "Unknown"
-    invoice_num = generate_invoice_number()
+
+    # Invoice counter dari database (lebih aman dari file txt)
+    today = datetime.now().strftime("%Y%m%d")
+    counter_data = await db.get_setting("invoice_counter")
+    try:
+        data = json.loads(counter_data) if counter_data else {}
+        if data.get("date") == today:
+            counter = data["counter"] + 1
+        else:
+            counter = 1
+    except Exception:
+        counter = 1
+    await db.set_setting("invoice_counter", json.dumps({"date": today, "counter": counter}))
+    invoice_num = f"INV-{today}-{counter:04d}"
+
     transaction_data["invoice"] = invoice_num
     transaction_data["timestamp"] = datetime.now()
 

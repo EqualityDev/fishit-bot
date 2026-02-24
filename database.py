@@ -52,7 +52,11 @@ class SimpleDB:
                 status TEXT DEFAULT 'OPEN',
                 created_at TEXT
             )''')
-            # Migration: tambah kolom spotlight kalau belum ada
+            await db.execute('''CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            )''')
+            # Migrations
             try:
                 await db.execute("ALTER TABLE products ADD COLUMN spotlight INTEGER DEFAULT 0")
             except Exception:
@@ -395,6 +399,30 @@ class SimpleDB:
         except Exception as e:
             print(f"❌ Error load auto_react_all: {e}")
             return {}
+
+    # ─── Settings / Invoice Counter ──────────────────────────────
+
+    async def get_setting(self, key):
+        try:
+            async with aiosqlite.connect(self.db_name) as db:
+                cursor = await db.execute("SELECT value FROM settings WHERE key = ?", (key,))
+                row = await cursor.fetchone()
+                return row[0] if row else None
+        except Exception:
+            return None
+
+    async def set_setting(self, key, value):
+        try:
+            async with aiosqlite.connect(self.db_name) as db:
+                await db.execute(
+                    "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+                    (key, value),
+                )
+                await db.commit()
+            return True
+        except Exception as e:
+            print(f"❌ Error set setting: {e}")
+            return False
 
 
 class ProductsCache:

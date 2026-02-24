@@ -331,11 +331,16 @@ class StoreCog(commands.Cog):
         if not item:
             await interaction.response.send_message("❌ Item tidak ditemukan!", ephemeral=True)
             return
+        # Limit spotlight maksimal 5
+        spotlight_count = sum(1 for p in self.bot.PRODUCTS if p.get("spotlight"))
+        if spotlight_count >= 5 and not item.get("spotlight"):
+            await interaction.response.send_message("❌ Maksimal 5 produk spotlight! Hapus salah satu dulu dengan /unsetspotlight.", ephemeral=True)
+            return
         item["spotlight"] = 1
         await self.bot.db.set_spotlight(item_id, 1)
         self.bot.products_cache.invalidate()
         embed = discord.Embed(
-            title="🔦 SPOTLIGHT DIAKTIFKAN",
+            title="SPOTLIGHT DIAKTIFKAN",
             description=f"**{item['name']}** sekarang tampil di spotlight catalog!",
             color=0x00FF00,
         )

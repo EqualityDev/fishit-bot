@@ -1,6 +1,7 @@
 import asyncio
 import random
 import discord
+from datetime import datetime
 from discord import app_commands
 from discord.ext import commands
 from config import STAFF_ROLE_NAME
@@ -11,16 +12,25 @@ class AutoReact:
     def __init__(self):
         self.enabled_channels = {}
         self.default_emojis = ["❤️", "🔥", "🚀", "👍", "⭐", "🎉", "👏", "💯"]
+        self._last_react = {}  # channel_id: timestamp, untuk cooldown
 
     async def add_reactions(self, message, emoji_list=None):
+        if message.author.bot:
+            return
+        channel_id = message.channel.id
+        now = datetime.now().timestamp()
+        # Cooldown 3 detik per channel untuk hindari rate limit
+        if now - self._last_react.get(channel_id, 0) < 3:
+            return
+        self._last_react[channel_id] = now
         if not emoji_list:
             emoji_list = list(self.default_emojis)
-        await asyncio.sleep(random.uniform(2, 5))
+        await asyncio.sleep(random.uniform(1, 3))
         random.shuffle(emoji_list)
-        for emoji in emoji_list[:8]:
+        for emoji in emoji_list[:10]:
             try:
                 await message.add_reaction(emoji)
-                await asyncio.sleep(random.uniform(0.3, 0.8))
+                await asyncio.sleep(random.uniform(0.5, 1))
             except Exception:
                 continue
 
