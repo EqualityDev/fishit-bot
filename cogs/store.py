@@ -35,14 +35,18 @@ class SpotlightModal(discord.ui.Modal, title="Buat Spotlight"):
         style=discord.TextStyle.paragraph,
         max_length=500,
     )
+    gambar_url = discord.ui.TextInput(
+        label="URL Gambar",
+        placeholder="Contoh: https://i.imgur.com/xxx.png",
+        max_length=500,
+    )
     channel = discord.ui.TextInput(
-        label="Channel (ketik ID channel atau #nama)",
+        label="Channel (ketik ID atau nama channel)",
         placeholder="Contoh: 123456789 atau general",
         max_length=100,
     )
 
     async def on_submit(self, interaction: discord.Interaction):
-        # Cari channel
         channel_input = self.channel.value.strip().replace("#", "").replace("<", "").replace(">", "")
         target_channel = None
         if channel_input.isdigit():
@@ -54,42 +58,16 @@ class SpotlightModal(discord.ui.Modal, title="Buat Spotlight"):
             await interaction.response.send_message("❌ Channel tidak ditemukan!", ephemeral=True)
             return
 
-        # Minta upload gambar
-        await interaction.response.send_message(
-            f"✅ Oke! Sekarang **upload gambar** untuk spotlight ini di chat ini.\n"
-            f"_(kirim gambar dalam **60 detik**)_",
-            ephemeral=True,
-        )
-
-        # Tunggu gambar dari admin
-        def check(m):
-            return (
-                m.author == interaction.user
-                and m.channel == interaction.channel
-                and len(m.attachments) > 0
-                and m.attachments[0].content_type.startswith("image")
-            )
-
-        try:
-            msg = await interaction.client.wait_for("message", check=check, timeout=60)
-            image_url = msg.attachments[0].url
-            await msg.delete()
-        except Exception:
-            await interaction.followup.send("❌ Timeout! Tidak ada gambar dikirim.", ephemeral=True)
-            return
-
-        # Buat embed preview
         embed = discord.Embed(
             title=self.judul.value,
             description=self.deskripsi.value,
             color=0xFFD700,
             timestamp=datetime.now(),
         )
-        embed.set_image(url=image_url)
+        embed.set_image(url=self.gambar_url.value.strip())
         embed.set_thumbnail(url=STORE_THUMBNAIL)
         embed.set_footer(text="CELLYN STORE • SPOTLIGHT", icon_url=STORE_THUMBNAIL)
 
-        # Tombol kirim/batal
         view = discord.ui.View()
 
         async def kirim_callback(btn_interaction: discord.Interaction):
@@ -114,7 +92,7 @@ class SpotlightModal(discord.ui.Modal, title="Buat Spotlight"):
         view.add_item(kirim_btn)
         view.add_item(batal_btn)
 
-        await interaction.followup.send(
+        await interaction.response.send_message(
             content=f"**Preview spotlight** — cek dulu sebelum kirim ke {target_channel.mention}:",
             embed=embed,
             view=view,
@@ -144,7 +122,7 @@ class StoreCog(commands.Cog):
 
         embed = discord.Embed(
             title="CELLYN STORE - READY STOCK",
-            description=f"Rate: 1 RBX = Rp {RATE:,}\nPayment: QRIS / DANA / BCA\n\nPilih kategori di bawah untuk lihat item:",
+            description=f"Rate: 1 RBX = Rp {RATE:,}\nPayment: QRIS / DANA / BCA",
             color=0x00FF00,
         )
         embed.set_thumbnail(url=STORE_THUMBNAIL)
@@ -159,17 +137,18 @@ class StoreCog(commands.Cog):
 
         for cat in order:
             if cat in categories:
-                embed.add_field(
-                    name=cat,
-                    value=f"{len(categories[cat])} item tersedia",
-                    inline=True,
+                items = categories[cat]
+                value = "".join(
+                    f"ID:{item['id']} - {item['name']} - Rp {item['price']:,}\n"
+                    for item in items
                 )
+                embed.add_field(name=cat, value=value[:1024] or "-", inline=False)
 
         view = discord.ui.View()
         for cat in order:
             if cat in categories:
                 view.add_item(discord.ui.Button(
-                    label=cat,
+                    label=f"BUY {cat}",
                     style=discord.ButtonStyle.primary,
                     custom_id=f"buy_{cat}",
                 ))

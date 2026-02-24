@@ -11,6 +11,9 @@ class SimpleDB:
 
     async def init_db(self):
         async with aiosqlite.connect(self.db_name) as db:
+            # WAL mode untuk mencegah database locked error saat concurrent access
+            await db.execute("PRAGMA journal_mode=WAL")
+            await db.execute("PRAGMA synchronous=NORMAL")
             await db.execute('''CREATE TABLE IF NOT EXISTS transactions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 invoice TEXT,

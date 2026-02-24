@@ -50,16 +50,19 @@ async def handle_error(interaction_or_ctx, error, title="❌ Error", ephemeral=T
 
 # ─── Invoice ─────────────────────────────────────────────────────────────────
 
-def generate_invoice_number():
+def generate_invoice_number(db=None):
+    today = datetime.now().strftime("%Y%m%d")
     try:
         with open(INVOICE_COUNTER_FILE, "r") as f:
-            counter = int(f.read().strip())
+            data = json.loads(f.read().strip())
+            if data.get("date") == today:
+                counter = data["counter"] + 1
+            else:
+                counter = 1
     except Exception:
-        counter = 1000
-    counter += 1
+        counter = 1
     with open(INVOICE_COUNTER_FILE, "w") as f:
-        f.write(str(counter))
-    today = datetime.now().strftime("%Y%m%d")
+        f.write(json.dumps({"date": today, "counter": counter}))
     return f"INV-{today}-{counter:04d}"
 
 
@@ -273,16 +276,17 @@ def save_broadcast_cooldown(data):
 
 # ─── Backup ──────────────────────────────────────────────────────────────────
 
-def cleanup_old_backups(days=7):
-    import time
+def cleanup_old_backups(keep=5):
     try:
-        now = time.time()
-        cutoff = now - (days * 86400)
-        for file in os.listdir(BACKUP_DIR):
-            file_path = os.path.join(BACKUP_DIR, file)
-            if os.path.isfile(file_path) and os.path.getmtime(file_path) < cutoff:
-                os.remove(file_path)
-                print(f"🗑️ Hapus backup lama: {file}")
+        files = [
+            os.path.join(BACKUP_DIR, f)
+            for f in os.listdir(BACKUP_DIR)
+            if f.endswith(".db")
+        ]
+        files.sort(key=os.path.getmtime, reverse=True)
+        for old_file in files[keep:]:
+            os.remove(old_file)
+            print(f"🗑️ Hapus backup lama: {os.path.basename(old_file)}")
     except Exception as e:
         print(f"❌ Gagal cleanup backup: {e}")
 
