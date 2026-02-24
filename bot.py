@@ -4,7 +4,7 @@ import asyncio
 import logging
 import discord
 from discord.ext import commands
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from config import TOKEN, STAFF_ROLE_NAME, BACKUP_DIR, DB_NAME
 from database import SimpleDB, ProductsCache
@@ -72,11 +72,56 @@ async def auto_backup():
         await asyncio.sleep(21600)
 
 
+async def auto_daily_summary():
+    while True:
+        now = datetime.now()
+        next_midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        seconds_until_midnight = (next_midnight - now).total_seconds()
+        await asyncio.sleep(seconds_until_midnight)
+
+        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        try:
+            all_trans = await bot.db.get_all_transactions()
+            daily = [
+                t for t in all_trans
+                if t["timestamp"].strftime("%Y-%m-%d") == yesterday
+            ]
+            total_omset = sum(t["total_price"] for t in daily)
+            total_trx = len(daily)
+
+            methods = {}
+            for t in daily:
+                m = t.get("payment_method") or "-"
+                methods[m] = methods.get(m, 0) + 1
+
+            method_str = "\n".join(f"{m}: {c} transaksi" for m, c in methods.items()) or "-"
+
+            embed = discord.Embed(
+                title=f"REKAP HARIAN — {yesterday}",
+                color=0x00FF00,
+                timestamp=datetime.now(),
+            )
+            embed.add_field(name="Total Transaksi", value=str(total_trx), inline=True)
+            embed.add_field(name="Total Omset", value=f"Rp {total_omset:,}", inline=True)
+            embed.add_field(name="Metode Bayar", value=method_str, inline=False)
+            if total_trx == 0:
+                embed.description = "Tidak ada transaksi hari ini."
+            embed.set_footer(text="CELLYN STORE • Auto Summary")
+
+            for guild in bot.guilds:
+                backup_channel = discord.utils.get(guild.channels, name="backup-db")
+                if backup_channel:
+                    await backup_channel.send(embed=embed)
+            logger.info(f"✅ Auto summary terkirim untuk {yesterday}")
+        except Exception as e:
+            logger.error(f"❌ Gagal auto summary: {e}")
+
+
 async def update_member_count(guild):
     try:
-        category = discord.utils.get(guild.categories, name="📊 SERVER STATS")
+        category = discord.utils.get(guild.categories, name="SERVER STATS")
         if not category:
-            category = await guild.create_category("📊 SERVER STATS")
+            category = await guild.create_category("SERVER STATS")
         channel_name = f"Member: {guild.member_count}"
         existing = [c for c in guild.voice_channels if c.name.startswith("Member:")]
         if existing:
@@ -111,8 +156,6 @@ async def on_ready():
 
     await bot.db.init_db()
 
-    # DB sebagai single source of truth
-    # Load dari JSON hanya jika DB kosong (instalasi pertama)
     db_products = await bot.db.load_products()
     if not db_products:
         bot.PRODUCTS = load_products_json()
@@ -152,6 +195,7 @@ async def on_ready():
         logger.error(f"Sync error: {e}")
 
     bot.loop.create_task(auto_backup())
+    bot.loop.create_task(auto_daily_summary())
     bot.loop.create_task(update_all_member_counts())
     logger.info("✓ Background tasks started")
 
@@ -169,7 +213,8 @@ async def on_member_remove(member):
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound):
-        return  # Abaikan, !cancel ditangani di on_message
+        return
+
 
 # ─── Load Cogs ────────────────────────────────────────────────────────────────
 
