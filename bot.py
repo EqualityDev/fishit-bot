@@ -17,6 +17,33 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+class DiscordErrorHandler(logging.Handler):
+    """Kirim log ERROR ke channel #backup-db di Discord"""
+    def __init__(self, bot):
+        super().__init__(level=logging.ERROR)
+        self.bot = bot
+        self._queue = []
+
+    def emit(self, record):
+        self._queue.append(self.format(record))
+
+    async def flush_to_discord(self):
+        while True:
+            await asyncio.sleep(5)
+            if not self._queue:
+                continue
+            messages = self._queue.copy()
+            self._queue.clear()
+            for guild in self.bot.guilds:
+                backup_channel = discord.utils.get(guild.channels, name="backup-db")
+                if backup_channel:
+                    for msg in messages:
+                        try:
+                            await backup_channel.send(f"```\n⚠️ ERROR LOG\n{msg[:1900]}\n```")
+                        except Exception:
+                            pass
+
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -32,6 +59,10 @@ bot.blacklist = set()
 bot.PRODUCTS = []
 bot.auto_react = AutoReact()
 bot.auto_react_all = {}
+
+# Error handler untuk kirim log ke Discord
+bot._error_handler = DiscordErrorHandler(bot)
+logging.getLogger().addHandler(bot._error_handler)
 
 # ─── Background Tasks ─────────────────────────────────────────────────────────
 
@@ -197,6 +228,7 @@ async def on_ready():
     bot.loop.create_task(auto_backup())
     bot.loop.create_task(auto_daily_summary())
     bot.loop.create_task(update_all_member_counts())
+    bot.loop.create_task(bot._error_handler.flush_to_discord())
     logger.info("✓ Background tasks started")
 
 
@@ -224,6 +256,7 @@ async def main():
         await bot.load_extension("cogs.admin")
         await bot.load_extension("cogs.store")
         await bot.load_extension("cogs.ticket")
+        await bot.load_extension("cogs.giveaway")
         logger.info("✓ All cogs loaded")
         await bot.start(TOKEN)
 

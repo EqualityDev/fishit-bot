@@ -97,9 +97,18 @@ class TicketCog(commands.Cog):
 
             for t in self.bot.active_tickets.values():
                 if t["user_id"] == user_id and t["status"] == "OPEN":
-                    await interaction.response.send_message(
-                        "Kamu masih punya tiket aktif! Gunakan !cancel", ephemeral=True
-                    )
+                    existing_channel = interaction.guild.get_channel(int(t["channel_id"]))
+                    if existing_channel:
+                        await interaction.response.send_message(
+                            f"❌ Kamu masih punya tiket aktif di {existing_channel.mention}!\n"
+                            f"Selesaikan atau ketik `!cancel` di sana dulu sebelum buka tiket baru.",
+                            ephemeral=True,
+                        )
+                    else:
+                        # Channel sudah tidak ada, hapus tiket lama
+                        self.bot.active_tickets.pop(t["channel_id"], None)
+                        await self.bot.db.delete_ticket(t["channel_id"])
+                        break
                     return
 
             # Defer dulu sebelum operasi yang butuh waktu lama
@@ -211,8 +220,8 @@ class TicketCog(commands.Cog):
                 msg = f"➕ **{item_entry['name']}** qty jadi **{item_entry['qty']}**"
             else:
                 if item_entry["qty"] <= 1:
-                    await interaction.response.send_message("❌ Minimal qty 1. Ketik `!cancel` untuk batalkan tiket.", ephemeral=True)
-                    return
+                    ticket["items"].remove(item_entry)
+                    msg = f"🗑️ **{item_entry['name']}** dihapus dari tiket"
                 else:
                     item_entry["qty"] -= 1
                     msg = f"➖ **{item_entry['name']}** qty jadi **{item_entry['qty']}**"
