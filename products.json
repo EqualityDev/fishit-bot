@@ -1,144 +1,138 @@
 [
   {
     "id": 1,
-    "name": "CUPID'S HARP",
-    "category": "LIMITED SKIN",
+    "name": "CUPID'S HARP (999 Robux)",
+    "category": "LIMITED ITEM",
     "price": 95000
   },
   {
     "id": 2,
-    "name": "AURELIAN BOW",
-    "category": "LIMITED SKIN",
+    "name": "AURELIAN BOW (999 Robux)",
+    "category": "LIMITED ITEM",
     "price": 95000
   },
   {
     "id": 3,
-    "name": "VIP + LUCK",
+    "name": "VIP + LUCK (445 Robux)",
     "category": "GAMEPASS",
-    "price": 40000
+    "price": 42500
   },
   {
     "id": 4,
-    "name": "MUTATION",
+    "name": "MUTATION (295 Robux)",
     "category": "GAMEPASS",
-    "price": 25000
+    "price": 29000
   },
   {
     "id": 5,
-    "name": "ADVANCED LUCK",
+    "name": "ADVANCED LUCK (545 Robux)",
     "category": "GAMEPASS",
-    "price": 45000
+    "price": 52000
   },
   {
     "id": 6,
-    "name": "EXTRA LUCK",
+    "name": "EXTRA LUCK (245 Robux)",
     "category": "GAMEPASS",
-    "price": 21000
+    "price": 24500
   },
   {
     "id": 7,
-    "name": "DOUBLE XP",
+    "name": "DOUBLE XP (195 Robux)",
     "category": "GAMEPASS",
-    "price": 18000
+    "price": 19000
   },
   {
     "id": 8,
-    "name": "SELL ANYWHERE",
+    "name": "SELL ANYWHERE (315 Robux)",
     "category": "GAMEPASS",
-    "price": 28000
+    "price": 30000
   },
   {
     "id": 9,
-    "name": "SMALL LUCK",
+    "name": "SMALL LUCK (50 Robux)",
     "category": "GAMEPASS",
-    "price": 8000
+    "price": 5000
   },
   {
     "id": 10,
-    "name": "HYPERBOATPACK",
+    "name": "HYPERBOATPACK (999 Robux)",
     "category": "GAMEPASS",
     "price": 95000
   },
   {
     "id": 13,
-    "name": "VALENTINE CRATE 1X",
+    "name": "VALENTINE CRATE 1X (249 Robux)",
     "category": "CRATE",
-    "price": 28000
+    "price": 24000
   },
   {
     "id": 14,
-    "name": "VALENTINE CRATE 5X",
+    "name": "VALENTINE CRATE 5X (1245 Robux)",
     "category": "CRATE",
-    "price": 140000
+    "price": 118500
   },
   {
     "id": 15,
-    "name": "ELDERWOOD CRATE 1X",
+    "name": "ELDERWOOD CRATE 1X (99 Robux)",
     "category": "CRATE",
-    "price": 9000
+    "price": 9500
   },
   {
     "id": 16,
-    "name": "ELDERWOOD CRATE 5X",
+    "name": "ELDERWOOD CRATE 5X (495 Robux)",
     "category": "CRATE",
-    "price": 42000
+    "price": 47500
   },
   {
     "id": 17,
-    "name": "SERVER LUCK X2",
+    "name": "SERVER LUCK X2 (99 Robux)",
     "category": "BOOST",
-    "price": 10000
+    "price": 9500
   },
   {
     "id": 18,
-    "name": "SERVER LUCK X4",
+    "name": "SERVER LUCK X8 3 Jam (800 Robux)",
     "category": "BOOST",
-    "price": 38000
+    "price": 76000
   },
   {
     "id": 19,
-    "name": "SERVER LUCK X8",
+    "name": "X8 3 JAM (800 Robux)",
     "category": "BOOST",
-    "price": 73000
+    "price": 76000
   },
   {
     "id": 20,
-    "name": "X8 3 JAM",
+    "name": "X8 6 JAM (1300 Robux)",
     "category": "BOOST",
-    "price": 73000
+    "price": 123500
   },
   {
     "id": 21,
-    "name": "X8 6 JAM",
+    "name": "X8 12 JAM (1890 Robux)",
     "category": "BOOST",
-    "price": 115000
+    "price": 180000
   },
   {
     "id": 22,
-    "name": "X8 12 JAM",
+    "name": "X8 24 JAM (3100 Robux)",
     "category": "BOOST",
-    "price": 215000
+    "price": 250000
   },
   {
     "id": 23,
-    "name": "X8 24 JAM",
-    "category": "BOOST",
-    "price": 410000
-  },
-  {
-    "id": 24,
     "name": "NITRO BOOST 1 MONTH",
     "category": "NITRO",
     "price": 45000
   },
   {
-    "id": 25,
+    "id": 24,
     "name": "NITRO BOOST 3 MONTH",
     "category": "NITRO",
     "price": 50000
   },
   {
-    "id": 26,
+    "id": 25,
     "name": "RF VIP 7DAY",
     "category": "RED FINGER",
     "price": 21500
@@ -187,14 +181,8 @@
   },
   {
     "id": 34,
-    "name": "MIDMAN",
-    "category": "LAINNYA",
-    "price": 5000
-  },
-  {
-    "id": 35,
-    "name": "SC TUMBAL/DLL",
-    "category": "LAINNYA",
+    "name": "SECRET TUMBAL",
+    "category": "OTHER",
     "price": 5000
   }
 ]
