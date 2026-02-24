@@ -19,6 +19,13 @@ from config import (
 _log_channel_id = None
 
 
+# ─── Staff Check ─────────────────────────────────────────────────────────────
+
+def is_staff(interaction: discord.Interaction) -> bool:
+    staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
+    return staff_role in interaction.user.roles
+
+
 # ─── Error Handling ──────────────────────────────────────────────────────────
 
 async def handle_error(interaction_or_ctx, error, title="❌ Error", ephemeral=True):

@@ -37,6 +37,7 @@ bot.auto_react_all = {}
 
 async def auto_backup():
     while True:
+        await asyncio.sleep(21600)
         try:
             os.makedirs(BACKUP_DIR, exist_ok=True)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -68,8 +69,6 @@ async def auto_backup():
                     logger.error(f"❌ Gagal kirim backup ke Discord: {e}")
         except Exception as e:
             logger.error(f"❌ Gagal auto backup: {e}")
-
-        await asyncio.sleep(21600)
 
 
 async def update_member_count(guild):

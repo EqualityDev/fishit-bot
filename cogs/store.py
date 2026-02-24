@@ -19,12 +19,8 @@ from utils import (
     send_invoice,
     save_products_json,
     load_products_json,
+    is_staff,
 )
-
-
-def is_staff(interaction: discord.Interaction) -> bool:
-    staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
-    return staff_role in interaction.user.roles
 
 
 class StoreCog(commands.Cog):
@@ -47,7 +43,7 @@ class StoreCog(commands.Cog):
 
         embed = discord.Embed(
             title="CELLYN STORE - READY STOCK",
-            description=f"Rate: 1 RBX = Rp {RATE:,}\nPayment: QRIS / DANA / BCA",
+            description=f"Rate: 1 RBX = Rp {RATE:,}\nPayment: QRIS / DANA / BCA\n\nPilih kategori di bawah untuk lihat item:",
             color=0x00FF00,
         )
         embed.set_thumbnail(url=STORE_THUMBNAIL)
@@ -55,18 +51,17 @@ class StoreCog(commands.Cog):
 
         for cat in order:
             if cat in categories:
-                items = categories[cat][:5]
-                value = "".join(
-                    f"ID: {item['id']} - {item['name']} - Rp {item['price']:,}\n"
-                    for item in items
+                embed.add_field(
+                    name=cat,
+                    value=f"{len(categories[cat])} item tersedia",
+                    inline=True,
                 )
-                embed.add_field(name=cat, value=value or "-", inline=False)
 
         view = discord.ui.View()
         for cat in order:
             if cat in categories:
                 view.add_item(discord.ui.Button(
-                    label=f"BUY {cat}",
+                    label=cat,
                     style=discord.ButtonStyle.primary,
                     custom_id=f"buy_{cat}",
                 ))

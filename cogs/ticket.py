@@ -61,17 +61,25 @@ class TicketCog(commands.Cog):
             category = custom_id.replace("buy_", "")
             items = [p for p in self.bot.PRODUCTS if p["category"] == category]
             embed = discord.Embed(
-                title=category, description="Pilih item (catat ID nya):", color=0x3498DB
+                title=f"📦 {category}",
+                description="Klik item yang mau dibeli:",
+                color=0x3498DB,
             )
+            for item in items[:10]:
+                embed.add_field(
+                    name=f"ID:{item['id']} — {item['name']}",
+                    value=f"Rp {item['price']:,}",
+                    inline=True,
+                )
             view = discord.ui.View()
             for item in items[:10]:
                 view.add_item(discord.ui.Button(
-                    label=f"ID:{item['id']} - {item['name'][:30]} - Rp {item['price']:,}",
+                    label=f"{item['name'][:30]} — Rp {item['price']:,}",
                     style=discord.ButtonStyle.secondary,
                     custom_id=f"item_{item['id']}",
                 ))
             await interaction.response.send_message(
-                embed=embed, view=view, ephemeral=True, delete_after=20
+                embed=embed, view=view, ephemeral=True, delete_after=30
             )
 
         # ─── Open Ticket ─────────────────────────────────────────
@@ -133,36 +141,25 @@ class TicketCog(commands.Cog):
             self.bot.active_tickets[str(channel.id)] = ticket
 
             embed = discord.Embed(
-                title="🧾 **SELAMAT DATANG DI STORE KAMI**",
+                title="🧾 TIKET PEMBELIAN",
                 description=(
-                    f"━━━━━━━━━━━━━━━━━━━━━\n"
-                    f"**📦 ITEM YANG DIPILIH**\n```\n{item['name']}\n```\n"
-                    f"**💰 HARGA**\n```\nRp {item['price']:,}\n```\n"
-                    f"━━━━━━━━━━━━━━━━━━━━━"
+                    f"{user.mention}, tiket kamu sudah dibuat!\n\n"
+                    f"**📦 Item:** {item['name']}\n"
+                    f"**💰 Harga:** Rp {item['price']:,}\n\n"
+                    f"Pilih metode pembayaran:\n"
+                    f"**1** — QRIS  |  **2** — DANA  |  **3** — BCA\n\n"
+                    f"Ketik angka **1**, **2**, atau **3** untuk lanjut.\n"
+                    f"Ketik `!cancel` untuk batalkan."
                 ),
                 color=0x2B2D31,
             )
             embed.set_thumbnail(url=STORE_THUMBNAIL)
-            embed.add_field(name="💳 **METODE PEMBAYARAN**", value="```\n1. QRIS\n2. DANA\n3. BCA\n```", inline=True)
-            embed.add_field(name="⚡ **STATUS**", value="```\n🟢 AKTIF\n```", inline=True)
-            embed.add_field(
-                name="🔔 **LAYANAN PREMIUM**",
-                value="```\n⚡ Eksekusi Instan\n💬 Live Support 24/7\n🔒 Data Terjamin Aman\n✨ Member Exclusive\n```",
-                inline=False,
-            )
             embed.set_footer(text="CELLYN STORE • PREMIUM DIGITAL", icon_url=STORE_THUMBNAIL)
 
-            await channel.send(f"{user.mention}", embed=embed)
+            await channel.send(embed=embed)
 
             if staff_role:
                 await channel.send(f"📢 {staff_role.mention} tiket baru dari {user.mention}!")
-
-            await _send_item_buttons(channel, ticket, self.bot.products_cache)
-
-            await channel.send(
-                "**Ketik 1 (QRIS), 2 (DANA), atau 3 (BCA) untuk memilih metode pembayaran.**\n"
-                "Ketik `!cancel` untuk membatalkan."
-            )
 
             await interaction.followup.send(
                 f"✅ Tiket dibuat! {channel.mention}", ephemeral=True
@@ -235,7 +232,10 @@ class TicketCog(commands.Cog):
                 await interaction.response.send_message("❌ Tiket sudah diproses.", ephemeral=True)
                 return
 
-            await interaction.response.send_message("✅ **Pembayaran dikonfirmasi!** Menunggu verifikasi admin...")
+            await interaction.response.send_message(
+                "✅ **Pembayaran kamu sedang diverifikasi oleh admin.**\n"
+                "⏳ Estimasi: 1-5 menit. Mohon tunggu sebentar."
+            )
 
             staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
             verify_view = discord.ui.View()

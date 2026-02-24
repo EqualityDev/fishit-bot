@@ -17,14 +17,10 @@ from utils import (
     cleanup_old_backups,
     load_broadcast_cooldown,
     save_broadcast_cooldown,
+    is_staff,
 )
 
 logger = logging.getLogger(__name__)
-
-
-def is_staff(interaction: discord.Interaction) -> bool:
-    staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
-    return staff_role in interaction.user.roles
 
 
 # ─── Modals ──────────────────────────────────────────────────────────────────
