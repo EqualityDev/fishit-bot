@@ -24,7 +24,8 @@ class SimpleDB:
                 id INTEGER PRIMARY KEY,
                 name TEXT,
                 price INTEGER,
-                category TEXT
+                category TEXT,
+                spotlight INTEGER DEFAULT 0
             )''')
             await db.execute('''CREATE TABLE IF NOT EXISTS blacklist (
                 user_id TEXT PRIMARY KEY,
@@ -48,6 +49,11 @@ class SimpleDB:
                 status TEXT DEFAULT 'OPEN',
                 created_at TEXT
             )''')
+            # Migration: tambah kolom spotlight kalau belum ada
+            try:
+                await db.execute("ALTER TABLE products ADD COLUMN spotlight INTEGER DEFAULT 0")
+            except Exception:
+                pass
             await db.commit()
         print("✓ Database siap")
 
@@ -123,8 +129,8 @@ class SimpleDB:
                 await db.execute("DELETE FROM products")
                 for p in products:
                     await db.execute(
-                        "INSERT INTO products (id, name, price, category) VALUES (?, ?, ?, ?)",
-                        (p["id"], p["name"], p["price"], p["category"]),
+                        "INSERT INTO products (id, name, price, category, spotlight) VALUES (?, ?, ?, ?, ?)",
+                        (p["id"], p["name"], p["price"], p["category"], p.get("spotlight", 0)),
                     )
                 await db.commit()
             print(f"✓ Saved {len(products)} products")
@@ -137,10 +143,10 @@ class SimpleDB:
         try:
             async with aiosqlite.connect(self.db_name) as db:
                 db.row_factory = aiosqlite.Row
-                cursor = await db.execute("SELECT * FROM products ORDER BY id")
+                cursor = await db.execute("SELECT * FROM products ORDER BY spotlight DESC, id")
                 rows = await cursor.fetchall()
             products = [
-                {"id": r["id"], "name": r["name"], "price": r["price"], "category": r["category"]}
+                {"id": r["id"], "name": r["name"], "price": r["price"], "category": r["category"], "spotlight": r["spotlight"]}
                 for r in rows
             ]
             print(f"✓ Loaded {len(products)} products from database")
@@ -148,6 +154,19 @@ class SimpleDB:
         except Exception as e:
             print(f"❌ Error load products: {e}")
             return []
+
+    async def set_spotlight(self, item_id, value: int):
+        try:
+            async with aiosqlite.connect(self.db_name) as db:
+                await db.execute(
+                    "UPDATE products SET spotlight = ? WHERE id = ?",
+                    (value, item_id),
+                )
+                await db.commit()
+            return True
+        except Exception as e:
+            print(f"❌ Error set spotlight: {e}")
+            return False
 
     # ─── Blacklist ───────────────────────────────────────────────
 

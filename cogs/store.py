@@ -23,6 +23,105 @@ from utils import (
 )
 
 
+class SpotlightModal(discord.ui.Modal, title="Buat Spotlight"):
+    judul = discord.ui.TextInput(
+        label="Judul",
+        placeholder="Contoh: PROMO MINGGU INI!",
+        max_length=100,
+    )
+    deskripsi = discord.ui.TextInput(
+        label="Deskripsi",
+        placeholder="Tulis kata-kata promosi di sini...",
+        style=discord.TextStyle.paragraph,
+        max_length=500,
+    )
+    channel = discord.ui.TextInput(
+        label="Channel (ketik ID channel atau #nama)",
+        placeholder="Contoh: 123456789 atau general",
+        max_length=100,
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        # Cari channel
+        channel_input = self.channel.value.strip().replace("#", "").replace("<", "").replace(">", "")
+        target_channel = None
+        if channel_input.isdigit():
+            target_channel = interaction.guild.get_channel(int(channel_input))
+        else:
+            target_channel = discord.utils.get(interaction.guild.text_channels, name=channel_input)
+
+        if not target_channel:
+            await interaction.response.send_message("❌ Channel tidak ditemukan!", ephemeral=True)
+            return
+
+        # Minta upload gambar
+        await interaction.response.send_message(
+            f"✅ Oke! Sekarang **upload gambar** untuk spotlight ini di chat ini.\n"
+            f"_(kirim gambar dalam **60 detik**)_",
+            ephemeral=True,
+        )
+
+        # Tunggu gambar dari admin
+        def check(m):
+            return (
+                m.author == interaction.user
+                and m.channel == interaction.channel
+                and len(m.attachments) > 0
+                and m.attachments[0].content_type.startswith("image")
+            )
+
+        try:
+            msg = await interaction.client.wait_for("message", check=check, timeout=60)
+            image_url = msg.attachments[0].url
+            await msg.delete()
+        except Exception:
+            await interaction.followup.send("❌ Timeout! Tidak ada gambar dikirim.", ephemeral=True)
+            return
+
+        # Buat embed preview
+        embed = discord.Embed(
+            title=self.judul.value,
+            description=self.deskripsi.value,
+            color=0xFFD700,
+            timestamp=datetime.now(),
+        )
+        embed.set_image(url=image_url)
+        embed.set_thumbnail(url=STORE_THUMBNAIL)
+        embed.set_footer(text="CELLYN STORE • SPOTLIGHT", icon_url=STORE_THUMBNAIL)
+
+        # Tombol kirim/batal
+        view = discord.ui.View()
+
+        async def kirim_callback(btn_interaction: discord.Interaction):
+            await target_channel.send(embed=embed)
+            await btn_interaction.response.edit_message(
+                content=f"✅ Spotlight berhasil dikirim ke {target_channel.mention}!",
+                embed=None,
+                view=None,
+            )
+
+        async def batal_callback(btn_interaction: discord.Interaction):
+            await btn_interaction.response.edit_message(
+                content="❌ Spotlight dibatalkan.",
+                embed=None,
+                view=None,
+            )
+
+        kirim_btn = discord.ui.Button(label="Kirim", style=discord.ButtonStyle.success)
+        batal_btn = discord.ui.Button(label="Batal", style=discord.ButtonStyle.danger)
+        kirim_btn.callback = kirim_callback
+        batal_btn.callback = batal_callback
+        view.add_item(kirim_btn)
+        view.add_item(batal_btn)
+
+        await interaction.followup.send(
+            content=f"**Preview spotlight** — cek dulu sebelum kirim ke {target_channel.mention}:",
+            embed=embed,
+            view=view,
+            ephemeral=True,
+        )
+
+
 class StoreCog(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
@@ -33,6 +132,8 @@ class StoreCog(commands.Cog):
     @app_commands.command(name="catalog", description="Lihat semua item")
     async def catalog(self, interaction: discord.Interaction):
         products = await self.bot.products_cache.get_products()
+
+        spotlight_items = [p for p in products if p.get("spotlight")]
         categories = {}
         for p in products:
             categories.setdefault(p["category"], []).append(p)
@@ -48,6 +149,13 @@ class StoreCog(commands.Cog):
         )
         embed.set_thumbnail(url=STORE_THUMBNAIL)
         embed.set_image(url=STORE_BANNER)
+
+        if spotlight_items:
+            value = "".join(
+                f"**{p['name']}** — Rp {p['price']:,}\n"
+                for p in spotlight_items
+            )
+            embed.add_field(name="SPOTLIGHT", value=value, inline=False)
 
         for cat in order:
             if cat in categories:
@@ -212,7 +320,67 @@ class StoreCog(commands.Cog):
             embed.add_field(name=cat, value=value[:1024], inline=False)
         await interaction.user.send(embed=embed)
 
-    @app_commands.command(name="refreshcache", description="[ADMIN] Refresh produk cache")
+    @app_commands.command(name="spotlight", description="[ADMIN] Buat dan kirim embed spotlight")
+    async def spotlight(self, interaction: discord.Interaction):
+        if not is_staff(interaction):
+            await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+            return
+        await interaction.response.send_modal(SpotlightModal())
+
+    @app_commands.command(name="setspotlight", description="[ADMIN] Set produk sebagai spotlight")
+    @app_commands.describe(item_id="ID item yang akan di-spotlight")
+    async def set_spotlight(self, interaction: discord.Interaction, item_id: int):
+        if not is_staff(interaction):
+            await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+            return
+        item = next((p for p in self.bot.PRODUCTS if p["id"] == item_id), None)
+        if not item:
+            await interaction.response.send_message("❌ Item tidak ditemukan!", ephemeral=True)
+            return
+        item["spotlight"] = 1
+        await self.bot.db.set_spotlight(item_id, 1)
+        self.bot.products_cache.invalidate()
+        embed = discord.Embed(
+            title="🔦 SPOTLIGHT DIAKTIFKAN",
+            description=f"**{item['name']}** sekarang tampil di spotlight catalog!",
+            color=0x00FF00,
+        )
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="unsetspotlight", description="[ADMIN] Hapus produk dari spotlight")
+    @app_commands.describe(item_id="ID item yang akan dihapus dari spotlight")
+    async def unset_spotlight(self, interaction: discord.Interaction, item_id: int):
+        if not is_staff(interaction):
+            await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+            return
+        item = next((p for p in self.bot.PRODUCTS if p["id"] == item_id), None)
+        if not item:
+            await interaction.response.send_message("❌ Item tidak ditemukan!", ephemeral=True)
+            return
+        item["spotlight"] = 0
+        await self.bot.db.set_spotlight(item_id, 0)
+        self.bot.products_cache.invalidate()
+        embed = discord.Embed(
+            title="🔦 SPOTLIGHT DINONAKTIFKAN",
+            description=f"**{item['name']}** dihapus dari spotlight.",
+            color=0xFF0000,
+        )
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="listspotlight", description="[ADMIN] Lihat produk yang sedang spotlight")
+    async def list_spotlight(self, interaction: discord.Interaction):
+        if not is_staff(interaction):
+            await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+            return
+        products = await self.bot.products_cache.get_products()
+        spotlight = [p for p in products if p.get("spotlight")]
+        if not spotlight:
+            await interaction.response.send_message("📝 Belum ada produk spotlight.", ephemeral=True)
+            return
+        embed = discord.Embed(title="🔦 PRODUK SPOTLIGHT", color=0x00FF00)
+        for p in spotlight:
+            embed.add_field(name=f"ID:{p['id']} — {p['name']}", value=f"Rp {p['price']:,}", inline=False)
+        await interaction.response.send_message(embed=embed)
     async def refresh_cache(self, interaction: discord.Interaction):
         if not is_staff(interaction):
             await interaction.response.send_message("❌ Admin only!", ephemeral=True)

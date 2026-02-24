@@ -211,8 +211,8 @@ class TicketCog(commands.Cog):
                 msg = f"➕ **{item_entry['name']}** qty jadi **{item_entry['qty']}**"
             else:
                 if item_entry["qty"] <= 1:
-                    ticket["items"].remove(item_entry)
-                    msg = f"🗑️ **{item_entry['name']}** dihapus dari tiket"
+                    await interaction.response.send_message("❌ Minimal qty 1. Ketik `!cancel` untuk batalkan tiket.", ephemeral=True)
+                    return
                 else:
                     item_entry["qty"] -= 1
                     msg = f"➖ **{item_entry['name']}** qty jadi **{item_entry['qty']}**"
