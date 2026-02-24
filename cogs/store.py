@@ -162,29 +162,44 @@ class StoreCog(commands.Cog):
     @app_commands.command(name="help", description="Bantuan menggunakan bot CELLYN STORE")
     async def help_command(self, interaction: discord.Interaction):
         embed = discord.Embed(
-            title="📋 **BANTUAN CELLYN STORE**",
-            description="**Selamat datang di Cellyn Store!**",
+            title="BANTUAN CELLYN STORE",
+            description="Selamat datang di Cellyn Store!",
             color=0x00FF00,
         )
         embed.set_thumbnail(url=STORE_THUMBNAIL)
         embed.add_field(
-            name="🛒 **CARA ORDER**",
-            value="```\n1. /catalog → pilih kategori\n2. Klik item → tiket terbuka\n3. Transfer sesuai total\n4. Klik PAID\n```",
+            name="CARA ORDER",
+            value="```\n1. /catalog → lihat item\n2. Klik BUY → pilih item\n3. Tiket terbuka otomatis\n4. Ketik 1/2/3 pilih metode\n5. Transfer + kirim bukti\n6. Klik PAID\n```",
             inline=False,
         )
         embed.add_field(
-            name="📌 **COMMAND CUSTOMER**",
-            value="```\n/catalog   - Lihat semua item\n/rate      - Cek rate Robux\n/items     - Item di tiket\n/additem   - Tambah item\n/removeitem- Hapus item\n!cancel    - Batalkan tiket\n```",
+            name="COMMAND CUSTOMER",
+            value="```\n/catalog    - Lihat semua item\n/rate       - Cek rate Robux\n/history    - Riwayat transaksi\n/items      - Item di tiket aktif\n/additem    - Tambah item ke tiket\n/removeitem - Hapus item dari tiket\n/qris       - Lihat QR code\n!cancel     - Batalkan tiket\n```",
             inline=False,
         )
         embed.add_field(
-            name="👑 **COMMAND ADMIN**",
-            value="```\n/addproduct - Tambah produk\n/editprice  - Ubah harga\n/editname   - Ubah nama\n/deleteitem - Hapus produk\n/setrate    - Update rate\n/uploadqris - Upload QRIS\n/blacklist  - Blokir user\n/stats      - Statistik\n/fakeinvoice- Test invoice\n```",
+            name="COMMAND ADMIN — PRODUK",
+            value="```\n/addproduct   - Tambah produk\n/editprice    - Ubah harga\n/editname     - Ubah nama\n/deleteitem   - Hapus produk\n/listitems    - Daftar semua item\n/setrate      - Update rate Robux\n/uploadqris   - Upload QRIS\n/refreshcatalog - Refresh catalog\n```",
             inline=False,
         )
         embed.add_field(
-            name="💳 **METODE PEMBAYARAN**",
-            value=f"```\n🏧 QRIS - Scan di embed\n💰 DANA - {DANA_NUMBER}\n🏦 BCA  - {BCA_NUMBER}\n```",
+            name="COMMAND ADMIN — SPOTLIGHT",
+            value="```\n/spotlight      - Buat embed spotlight\n/setspotlight   - Set item spotlight\n/unsetspotlight - Hapus item spotlight\n/listspotlight  - Lihat item spotlight\n```",
+            inline=False,
+        )
+        embed.add_field(
+            name="COMMAND ADMIN — SISTEM",
+            value="```\n/stats        - Statistik penjualan\n/statdetail   - Detail statistik\n/allhistory   - Semua transaksi user\n/export       - Export data CSV\n/broadcast    - Kirim pesan ke semua\n/blacklist    - Blokir user\n/unblacklist  - Hapus blokir user\n/backup       - Backup manual DB\n/listbackup   - Daftar backup\n/restore      - Restore backup\n/resetdb      - Reset database\n/cleanupstats - Hapus data statistik\n/fakeinvoice  - Generate invoice test\n/ping         - Cek status bot\n/reboot       - Restart bot\n```",
+            inline=False,
+        )
+        embed.add_field(
+            name="COMMAND ADMIN — AUTO REACT",
+            value="```\n/setreact    - Set auto react (staff)\n/setreactall - Set auto react (semua)\n/reactlist   - Lihat daftar react\n```",
+            inline=False,
+        )
+        embed.add_field(
+            name="METODE PEMBAYARAN",
+            value=f"```\nQRIS - Scan QR (ketik 1)\nDANA - {DANA_NUMBER} (ketik 2)\nBCA  - {BCA_NUMBER} (ketik 3)\n```",
             inline=False,
         )
         embed.set_footer(text="CELLYN STORE • PREMIUM DIGITAL", icon_url=STORE_THUMBNAIL)
