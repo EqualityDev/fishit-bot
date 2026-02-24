@@ -102,7 +102,7 @@ async def send_invoice(guild, transaction_data, db):
 
     embed = discord.Embed(
         title="TRANSAKSI BERHASIL",
-        color=0x00FF00,
+        color=0x00BFFF,
         timestamp=datetime.now(),
     )
     embed.set_thumbnail(url=STORE_THUMBNAIL)
@@ -133,7 +133,7 @@ async def send_invoice(guild, transaction_data, db):
             dm_embed = discord.Embed(
                 title="🧾 **INVOICE PEMBAYARAN**",
                 description="Terima kasih telah berbelanja di **CELLYN STORE**!",
-                color=0x00FF00,
+                color=0x00BFFF,
                 timestamp=datetime.now(),
             )
             dm_embed.set_thumbnail(url=STORE_THUMBNAIL)
@@ -203,7 +203,7 @@ async def get_log_channel(guild):
         embed = discord.Embed(
             title="📋 LOG TRANSAKSI CELLYN STORE",
             description="Channel ini mencatat semua transaksi yang BERHASIL.",
-            color=0x00FF00,
+            color=0x00BFFF,
             timestamp=datetime.now(),
         )
         embed.set_footer(text="CELLYN STORE")

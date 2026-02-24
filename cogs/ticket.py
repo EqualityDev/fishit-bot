@@ -64,7 +64,7 @@ class TicketCog(commands.Cog):
             embed = discord.Embed(
                 title=f"📦 {category}",
                 description="Klik item yang mau dibeli:",
-                color=0x3498DB,
+                color=0x00BFFF,
             )
             for item in items[:10]:
                 embed.add_field(
@@ -152,7 +152,7 @@ class TicketCog(commands.Cog):
 
             embed = discord.Embed(
                 title="TIKET PEMBELIAN",
-                color=0x2B2D31,
+                color=0x00BFFF,
             )
             embed.add_field(name="Customer", value=user.mention, inline=True)
             embed.add_field(name="Item", value=item['name'], inline=True)
@@ -401,7 +401,7 @@ class TicketCog(commands.Cog):
                             f"Setelah transfer, kirim **bukti pembayaran** (screenshot) di sini,\n"
                             f"lalu klik tombol **PAID** di bawah."
                         ),
-                        color=0x00FF00,
+                        color=0x00BFFF,
                     )
                     if qris_url:
                         embed.set_image(url=qris_url)
@@ -418,7 +418,7 @@ class TicketCog(commands.Cog):
                             f"Setelah transfer, kirim **bukti pembayaran** (screenshot) di sini,\n"
                             f"lalu klik tombol **PAID** di bawah."
                         ),
-                        color=0x118EEA,
+                        color=0x00BFFF,
                     )
                     embed.set_footer(text="CELLYN STORE • Pastikan nominal sesuai")
                     await message.channel.send(embed=embed)
@@ -433,7 +433,7 @@ class TicketCog(commands.Cog):
                             f"Setelah transfer, kirim **bukti pembayaran** (screenshot) di sini,\n"
                             f"lalu klik tombol **PAID** di bawah."
                         ),
-                        color=0x005BAC,
+                        color=0x00BFFF,
                     )
                     embed.set_footer(text="CELLYN STORE • Pastikan nominal sesuai")
                     await message.channel.send(embed=embed)

@@ -147,7 +147,7 @@ class ReactCog(commands.Cog):
             await interaction.response.send_message("📝 Belum ada channel dengan auto-react")
             return
 
-        embed = discord.Embed(title="📊 AUTO-REACT ACTIVE CHANNELS", color=0x00FF00)
+        embed = discord.Embed(title="📊 AUTO-REACT ACTIVE CHANNELS", color=0x00BFFF)
 
         if has_react:
             embed.add_field(name="🔹 /setreact (Admin only)", value="​", inline=False)

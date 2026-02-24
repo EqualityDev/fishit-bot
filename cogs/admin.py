@@ -153,7 +153,7 @@ class AdminCog(commands.Cog):
         if not backups:
             await interaction.response.send_message("📝 Belum ada backup.")
             return
-        embed = discord.Embed(title="📁 DAFTAR BACKUP", color=0x00FF00)
+        embed = discord.Embed(title="📁 DAFTAR BACKUP", color=0x00BFFF)
         for b in backups:
             size = os.path.getsize(f"{BACKUP_DIR}/{b}") / 1024
             embed.add_field(name=b, value=f"{size:.2f} KB", inline=False)
@@ -182,7 +182,7 @@ class AdminCog(commands.Cog):
             embed = discord.Embed(
                 title="✅ RESTORE BERHASIL",
                 description=f"Database berhasil direstore dari `{backup_file}`",
-                color=0x00FF00,
+                color=0x00BFFF,
             )
             embed.add_field(name="📊 Ukuran", value=f"{size:.2f} MB", inline=True)
             embed.add_field(name="💾 Backup sebelum restore", value=f"`pre_restore_{timestamp}.db`", inline=True)
@@ -221,7 +221,7 @@ class AdminCog(commands.Cog):
                     month_trans.append(t)
             except Exception:
                 continue
-        embed = discord.Embed(title="STATISTIK PENJUALAN", color=0x00FF00, timestamp=datetime.now())
+        embed = discord.Embed(title="STATISTIK PENJUALAN", color=0x00BFFF, timestamp=datetime.now())
         embed.add_field(name="HARI INI", value=f"{len(today_trans)} transaksi\nRp {sum(t['total_price'] for t in today_trans):,}", inline=True)
         embed.add_field(name="7 HARI", value=f"{len(week_trans)} transaksi\nRp {sum(t['total_price'] for t in week_trans):,}", inline=True)
         embed.add_field(name="30 HARI", value=f"{len(month_trans)} transaksi\nRp {sum(t['total_price'] for t in month_trans):,}", inline=True)
@@ -250,7 +250,7 @@ class AdminCog(commands.Cog):
         first_date = min(datetime.fromisoformat(str(t["timestamp"])) if isinstance(t["timestamp"], str) else t["timestamp"] for t in real_trans)
         days_active = max(1, (datetime.now() - first_date).days)
         avg_daily = total_omset / days_active
-        embed = discord.Embed(title="📊 STATISTIK DETAIL", color=0x00FF00, timestamp=datetime.now())
+        embed = discord.Embed(title="📊 STATISTIK DETAIL", color=0x00BFFF, timestamp=datetime.now())
         embed.add_field(name="💰 Total Omset", value=f"Rp {total_omset:,}", inline=True)
         embed.add_field(name="📦 Total Transaksi", value=f"{total_real} real / {total_fake} fake", inline=True)
         embed.add_field(name="📈 Rata-rata", value=f"Rp {avg_transaksi:,.0f}/transaksi", inline=True)
@@ -325,7 +325,7 @@ class AdminCog(commands.Cog):
         embed = discord.Embed(
             title="⛔ BLACKLIST",
             description=f"User: {user.mention}\nAlasan: {reason}",
-            color=0xFF0000,
+            color=0x00BFFF,
             timestamp=datetime.now(),
         )
         embed.set_footer(text=f"Oleh: {interaction.user.name}")
@@ -365,7 +365,7 @@ class AdminCog(commands.Cog):
         embed = discord.Embed(
             title="📢 **✨ PENGUMUMAN CELLYN STORE ✨**",
             description=pesan,
-            color=0x00FF00,
+            color=0x00BFFF,
             timestamp=datetime.now(),
         )
         embed.set_thumbnail(url=STORE_THUMBNAIL)
