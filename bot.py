@@ -150,6 +150,8 @@ async def auto_daily_summary():
 
 async def update_member_count(guild):
     try:
+        if not guild.chunked:
+            await guild.chunk()
         category = discord.utils.get(guild.categories, name="SERVER STATS")
         if not category:
             category = await guild.create_category("SERVER STATS")
