@@ -1,5 +1,5 @@
-discord.py==2.4.0
-python-dotenv==1.0.0
 aiofiles
 aiosqliteopenpyxl
+discord.py==2.4.0
 openpyxl
+python-dotenv==1.0.0
