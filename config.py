@@ -23,8 +23,8 @@ CATEGORY_PRIORITY = [
     "BOOST", "NITRO", "RED FINGER", "MIDMAN", "LAINNYA"
 ]
 
-STORE_THUMBNAIL = os.getenv("STORE_THUMBNAIL", "https://i.imgur.com/55K63yR.png")
-STORE_BANNER = os.getenv("STORE_BANNER", "https://i.imgur.com/FvBULuL.png")
-BROADCAST_BANNER = os.getenv("BROADCAST_BANNER", "https://i.imgur.com/md5cK3K.png")
-INVOICE_BANNER = os.getenv("INVOICE_BANNER", "https://i.imgur.com/ZgLBWzX.png")
-WELCOME_BANNER = os.getenv("WELCOME_BANNER", "")
+STORE_THUMBNAIL = os.getenv("STORE_THUMBNAIL", "https://i.imgur.com/xp2F452.png")
+STORE_BANNER = os.getenv("STORE_BANNER", "https://i.imgur.com/dyLxR7B.png")
+BROADCAST_BANNER = os.getenv("BROADCAST_BANNER", "https://i.imgur.com/eEti6Tj.png")
+INVOICE_BANNER = os.getenv("INVOICE_BANNER", "https://i.imgur.com/CQAn1Un.png")
+WELCOME_BANNER = os.getenv("WELCOME_BANNER", "https://i.imgur.com/bvtm58j.png")
