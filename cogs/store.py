@@ -61,7 +61,7 @@ class SpotlightModal(discord.ui.Modal, title="Buat Spotlight"):
         embed = discord.Embed(
             title=self.judul.value,
             description=self.deskripsi.value,
-            color=0xFFD700,
+            color=0x00BFFF,
             timestamp=datetime.now(),
         )
         embed.set_image(url=self.gambar_url.value.strip())
@@ -123,7 +123,7 @@ class StoreCog(commands.Cog):
         embed = discord.Embed(
             title="CELLYN STORE - READY STOCK",
             description=f"Rate: 1 RBX = Rp {RATE:,}\nPayment: QRIS / DANA / BCA",
-            color=0x00FF00,
+            color=0x00BFFF,
         )
         embed.set_thumbnail(url=STORE_THUMBNAIL)
         embed.set_image(url=STORE_BANNER)
@@ -161,49 +161,112 @@ class StoreCog(commands.Cog):
 
     @app_commands.command(name="help", description="Bantuan menggunakan bot CELLYN STORE")
     async def help_command(self, interaction: discord.Interaction):
-        embed = discord.Embed(
-            title="BANTUAN CELLYN STORE",
-            description="Selamat datang di Cellyn Store!",
-            color=0x00FF00,
-        )
-        embed.set_thumbnail(url=STORE_THUMBNAIL)
-        embed.add_field(
-            name="CARA ORDER",
-            value="```\n1. /catalog → lihat item\n2. Klik BUY → pilih item\n3. Tiket terbuka otomatis\n4. Ketik 1/2/3 pilih metode\n5. Transfer + kirim bukti\n6. Klik PAID\n```",
-            inline=False,
-        )
-        embed.add_field(
-            name="COMMAND CUSTOMER",
-            value="```\n/catalog    - Lihat semua item\n/rate       - Cek rate Robux\n/history    - Riwayat transaksi\n/items      - Item di tiket aktif\n/additem    - Tambah item ke tiket\n/removeitem - Hapus item dari tiket\n/qris       - Lihat QR code\n!cancel     - Batalkan tiket\n```",
-            inline=False,
-        )
-        embed.add_field(
-            name="COMMAND ADMIN — PRODUK",
-            value="```\n/addproduct   - Tambah produk\n/editprice    - Ubah harga\n/editname     - Ubah nama\n/deleteitem   - Hapus produk\n/listitems    - Daftar semua item\n/setrate      - Update rate Robux\n/uploadqris   - Upload QRIS\n/refreshcatalog - Refresh catalog\n```",
-            inline=False,
-        )
-        embed.add_field(
-            name="COMMAND ADMIN — SPOTLIGHT",
-            value="```\n/spotlight      - Buat embed spotlight\n/setspotlight   - Set item spotlight\n/unsetspotlight - Hapus item spotlight\n/listspotlight  - Lihat item spotlight\n```",
-            inline=False,
-        )
-        embed.add_field(
-            name="COMMAND ADMIN — SISTEM",
-            value="```\n/stats        - Statistik penjualan\n/statdetail   - Detail statistik\n/allhistory   - Semua transaksi user\n/export       - Export data CSV\n/broadcast    - Kirim pesan ke semua\n/blacklist    - Blokir user\n/unblacklist  - Hapus blokir user\n/backup       - Backup manual DB\n/listbackup   - Daftar backup\n/restore      - Restore backup\n/resetdb      - Reset database\n/cleanupstats - Hapus data statistik\n/fakeinvoice  - Generate invoice test\n/ping         - Cek status bot\n/reboot       - Restart bot\n```",
-            inline=False,
-        )
-        embed.add_field(
-            name="COMMAND ADMIN — AUTO REACT",
-            value="```\n/setreact    - Set auto react (staff)\n/setreactall - Set auto react (semua)\n/reactlist   - Lihat daftar react\n```",
-            inline=False,
-        )
-        embed.add_field(
-            name="METODE PEMBAYARAN",
-            value=f"```\nQRIS - Scan QR (ketik 1)\nDANA - {DANA_NUMBER} (ketik 2)\nBCA  - {BCA_NUMBER} (ketik 3)\n```",
-            inline=False,
-        )
-        embed.set_footer(text="CELLYN STORE • PREMIUM DIGITAL", icon_url=STORE_THUMBNAIL)
-        await interaction.response.send_message(embed=embed)
+        pages = [
+            {
+                "title": "CARA ORDER",
+                "description": (
+                    "**1.** `/catalog` → lihat semua item\n"
+                    "**2.** Klik **BUY** → pilih item\n"
+                    "**3.** Tiket terbuka otomatis\n"
+                    "**4.** Ketik `1` / `2` / `3` pilih metode bayar\n"
+                    "**5.** Transfer + kirim bukti pembayaran\n"
+                    "**6.** Klik tombol **PAID**\n\n"
+                    f"**Metode:** QRIS (1) · DANA {DANA_NUMBER} (2) · BCA {BCA_NUMBER} (3)"
+                ),
+            },
+            {
+                "title": "COMMAND CUSTOMER",
+                "description": (
+                    "`/catalog` — Lihat semua item\n"
+                    "`/rate` — Cek rate Robux\n"
+                    "`/history` — Riwayat transaksi\n"
+                    "`/items` — Item di tiket aktif\n"
+                    "`/additem` — Tambah item ke tiket\n"
+                    "`/removeitem` — Hapus item dari tiket\n"
+                    "`/qris` — Lihat QR code\n"
+                    "`!cancel` — Batalkan tiket"
+                ),
+            },
+            {
+                "title": "COMMAND ADMIN — PRODUK",
+                "description": (
+                    "`/addproduct` — Tambah produk\n"
+                    "`/editprice` — Ubah harga\n"
+                    "`/editname` — Ubah nama\n"
+                    "`/deleteitem` — Hapus produk\n"
+                    "`/listitems` — Daftar semua item\n"
+                    "`/setrate` — Update rate Robux\n"
+                    "`/uploadqris` — Upload QRIS\n"
+                    "`/refreshcatalog` — Refresh catalog\n"
+                    "`/spotlight` — Buat embed spotlight\n"
+                    "`/setspotlight` — Set item spotlight (max 5)\n"
+                    "`/unsetspotlight` — Hapus item spotlight\n"
+                    "`/listspotlight` — Lihat item spotlight"
+                ),
+            },
+            {
+                "title": "COMMAND ADMIN — SISTEM",
+                "description": (
+                    "`/stats` — Statistik penjualan\n"
+                    "`/statdetail` — Detail statistik\n"
+                    "`/allhistory` — Semua transaksi user\n"
+                    "`/export` — Export data CSV\n"
+                    "`/broadcast` — Kirim pesan ke semua\n"
+                    "`/blacklist` — Blokir user\n"
+                    "`/unblacklist` — Hapus blokir user\n"
+                    "`/backup` — Backup manual DB\n"
+                    "`/listbackup` — Daftar backup\n"
+                    "`/restore` — Restore backup\n"
+                    "`/resetdb` — Reset database\n"
+                    "`/cleanupstats` — Hapus data statistik\n"
+                    "`/fakeinvoice` — Generate invoice test\n"
+                    "`/ping` — Cek status bot\n"
+                    "`/reboot` — Restart bot"
+                ),
+            },
+            {
+                "title": "COMMAND ADMIN — LAINNYA",
+                "description": (
+                    "**Giveaway**\n"
+                    "`/giveaway` — Mulai giveaway baru\n"
+                    "`/giveaway_end` — Akhiri giveaway lebih awal\n"
+                    "`/giveaway_reroll` — Reroll pemenang\n"
+                    "`/giveaway_list` — Lihat giveaway aktif\n\n"
+                    "**Auto React**\n"
+                    "`/setreact` — Set auto react (staff)\n"
+                    "`/setreactall` — Set auto react (semua)\n"
+                    "`/reactlist` — Lihat daftar react"
+                ),
+            },
+        ]
+
+        def build_embed(page_index):
+            page = pages[page_index]
+            embed = discord.Embed(
+                title=page["title"],
+                description=page["description"],
+                color=0x00BFFF,
+            )
+            embed.set_thumbnail(url=STORE_THUMBNAIL)
+            embed.set_footer(text=f"CELLYN STORE • Halaman {page_index + 1}/{len(pages)}", icon_url=STORE_THUMBNAIL)
+            return embed
+
+        class HelpView(discord.ui.View):
+            def __init__(self):
+                super().__init__(timeout=60)
+                self.page = 0
+
+            @discord.ui.button(label="◀ Prev", style=discord.ButtonStyle.secondary)
+            async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+                self.page = (self.page - 1) % len(pages)
+                await interaction.response.edit_message(embed=build_embed(self.page), view=self)
+
+            @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary)
+            async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+                self.page = (self.page + 1) % len(pages)
+                await interaction.response.edit_message(embed=build_embed(self.page), view=self)
+
+        await interaction.response.send_message(embed=build_embed(0), view=HelpView())
 
     # ─── Product Management ──────────────────────────────────────
 
@@ -227,7 +290,7 @@ class StoreCog(commands.Cog):
         embed = discord.Embed(
             title="✅ PRODUK DITAMBAHKAN",
             description=f"**ID:** {id}\n**Nama:** {name}\n**Harga:** Rp {price:,}\n**Kategori:** {category.upper()}",
-            color=0x00FF00,
+            color=0x00BFFF,
         )
         await interaction.response.send_message(embed=embed)
 
@@ -252,7 +315,7 @@ class StoreCog(commands.Cog):
         embed = discord.Embed(
             title="💰 HARGA DIUPDATE",
             description=f"**Item:** {item['name']}\n**Lama:** Rp {old_price:,}\n**Baru:** Rp {new_price:,}",
-            color=0x00FF00,
+            color=0x00BFFF,
         )
         await interaction.response.send_message(embed=embed)
 
@@ -274,7 +337,7 @@ class StoreCog(commands.Cog):
         embed = discord.Embed(
             title="📝 NAMA DIUPDATE",
             description=f"**ID:** {item_id}\n**Lama:** {old_name}\n**Baru:** {new_name}",
-            color=0x00FF00,
+            color=0x00BFFF,
         )
         await interaction.response.send_message(embed=embed)
 
@@ -295,7 +358,7 @@ class StoreCog(commands.Cog):
         embed = discord.Embed(
             title="🗑️ ITEM DIHAPUS",
             description=f"**ID:** {item_id}\n**Nama:** {item['name']}\n**Harga:** Rp {item['price']:,}",
-            color=0xFF0000,
+            color=0x00BFFF,
         )
         await interaction.response.send_message(embed=embed)
 
@@ -308,7 +371,7 @@ class StoreCog(commands.Cog):
         categories = {}
         for p in self.bot.PRODUCTS:
             categories.setdefault(p["category"], []).append(p)
-        embed = discord.Embed(title="📋 DAFTAR ITEM CELLYN STORE", color=0x00FF00, timestamp=datetime.now())
+        embed = discord.Embed(title="📋 DAFTAR ITEM CELLYN STORE", color=0x00BFFF, timestamp=datetime.now())
         for cat, items in categories.items():
             value = "".join(f"ID:{item['id']} - {item['name']} - Rp {item['price']:,}\n" for item in items)
             embed.add_field(name=cat, value=value[:1024], inline=False)
@@ -331,13 +394,18 @@ class StoreCog(commands.Cog):
         if not item:
             await interaction.response.send_message("❌ Item tidak ditemukan!", ephemeral=True)
             return
+        # Limit spotlight maksimal 5
+        spotlight_count = sum(1 for p in self.bot.PRODUCTS if p.get("spotlight"))
+        if spotlight_count >= 5 and not item.get("spotlight"):
+            await interaction.response.send_message("❌ Maksimal 5 produk spotlight! Hapus salah satu dulu dengan /unsetspotlight.", ephemeral=True)
+            return
         item["spotlight"] = 1
         await self.bot.db.set_spotlight(item_id, 1)
         self.bot.products_cache.invalidate()
         embed = discord.Embed(
-            title="🔦 SPOTLIGHT DIAKTIFKAN",
+            title="SPOTLIGHT DIAKTIFKAN",
             description=f"**{item['name']}** sekarang tampil di spotlight catalog!",
-            color=0x00FF00,
+            color=0x00BFFF,
         )
         await interaction.response.send_message(embed=embed)
 
@@ -357,7 +425,7 @@ class StoreCog(commands.Cog):
         embed = discord.Embed(
             title="🔦 SPOTLIGHT DINONAKTIFKAN",
             description=f"**{item['name']}** dihapus dari spotlight.",
-            color=0xFF0000,
+            color=0x00BFFF,
         )
         await interaction.response.send_message(embed=embed)
 
@@ -371,7 +439,7 @@ class StoreCog(commands.Cog):
         if not spotlight:
             await interaction.response.send_message("📝 Belum ada produk spotlight.", ephemeral=True)
             return
-        embed = discord.Embed(title="🔦 PRODUK SPOTLIGHT", color=0x00FF00)
+        embed = discord.Embed(title="🔦 PRODUK SPOTLIGHT", color=0x00BFFF)
         for p in spotlight:
             embed.add_field(name=f"ID:{p['id']} — {p['name']}", value=f"Rp {p['price']:,}", inline=False)
         await interaction.response.send_message(embed=embed)
@@ -393,7 +461,7 @@ class StoreCog(commands.Cog):
         embed = discord.Embed(
             title="🔄 CATALOG REFRESHED",
             description=f"Total item: {len(self.bot.PRODUCTS)}",
-            color=0x00FF00,
+            color=0x00BFFF,
         )
         await interaction.response.send_message(embed=embed)
 
@@ -429,7 +497,7 @@ class StoreCog(commands.Cog):
                     interaction.guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True),
                 },
             )
-        embed = discord.Embed(title="QRIS PAYMENT", color=0x00FF00)
+        embed = discord.Embed(title="QRIS PAYMENT", color=0x00BFFF)
         embed.set_image(url=image.url)
         embed.set_footer(text=f"Uploaded by {interaction.user.name}")
         await qr_channel.send(embed=embed)
@@ -460,7 +528,7 @@ class StoreCog(commands.Cog):
         embed = discord.Embed(
             title="RIWAYAT TRANSAKSI",
             description=f"Total: {len(all_user)} transaksi",
-            color=0x3498DB,
+            color=0x00BFFF,
         )
         for t in reversed(last_5):
             ts = t["timestamp"] if isinstance(t["timestamp"], datetime) else datetime.fromisoformat(t["timestamp"])
@@ -489,7 +557,7 @@ class StoreCog(commands.Cog):
         embed = discord.Embed(
             title=f"📋 SEMUA TRANSAKSI {user.name}",
             description=f"Total: **{len(all_trans)}** | Belanja: **Rp {total_spent:,}**",
-            color=0x3498DB,
+            color=0x00BFFF,
         )
         for t in all_trans[-10:]:
             ts = t["timestamp"] if isinstance(t["timestamp"], datetime) else datetime.fromisoformat(t["timestamp"])
@@ -576,7 +644,7 @@ class StoreCog(commands.Cog):
         embed = discord.Embed(
             title="➕ ITEM DITAMBAHKAN",
             description=f"**{qty}x {item['name']}** berhasil ditambahkan!",
-            color=0x00FF00,
+            color=0x00BFFF,
         )
         embed.add_field(name="🛒 ITEMS SAAT INI", value=format_items(ticket["items"]), inline=False)
         embed.add_field(name="💰 TOTAL", value=f"Rp {ticket['total_price']:,}", inline=False)
@@ -618,7 +686,7 @@ class StoreCog(commands.Cog):
             await self.bot.db.delete_ticket(channel_id)
             await interaction.channel.delete()
             return
-        embed = discord.Embed(title="➖ ITEM DIHAPUS", description=removal_msg, color=0xFFA500)
+        embed = discord.Embed(title="➖ ITEM DIHAPUS", description=removal_msg, color=0x00BFFF)
         embed.add_field(name="🛒 ITEMS SAAT INI", value=format_items(ticket["items"]), inline=False)
         embed.add_field(name="💰 TOTAL", value=f"Rp {ticket['total_price']:,}", inline=False)
         await interaction.response.send_message(embed=embed)
@@ -636,7 +704,7 @@ class StoreCog(commands.Cog):
         embed = discord.Embed(
             title="🛒 DAFTAR ITEM",
             description=format_items(ticket["items"]) or "Belum ada item",
-            color=0x3498DB,
+            color=0x00BFFF,
         )
         embed.add_field(name="💰 TOTAL", value=f"Rp {ticket['total_price']:,}", inline=False)
         await interaction.response.send_message(embed=embed, ephemeral=True)
