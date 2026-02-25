@@ -396,6 +396,15 @@ class AdminCog(commands.Cog):
             await btn.edit_original_response(
                 content=f"✅ Broadcast selesai! Terkirim: **{success}**, Gagal: **{failed}**"
             )
+            backup_channel = discord.utils.get(btn.guild.channels, name="backup-db")
+            if backup_channel:
+                log_embed = discord.Embed(title="LOG BROADCAST", color=0x00BFFF, timestamp=datetime.now())
+                log_embed.add_field(name="Admin", value=interaction.user.mention, inline=True)
+                log_embed.add_field(name="Terkirim", value=str(success), inline=True)
+                log_embed.add_field(name="Gagal", value=str(failed), inline=True)
+                log_embed.add_field(name="Pesan", value=pesan[:500], inline=False)
+                log_embed.set_footer(text="CELLYN STORE • Broadcast Log")
+                await backup_channel.send(embed=log_embed)
 
         async def batal_callback(btn: discord.Interaction):
             if btn.user.id != interaction.user.id:
