@@ -8,7 +8,6 @@ STAFF_ROLE_NAME = os.getenv("STAFF_ROLE_NAME", "Admin Store")
 BUYER_ROLE_NAME = os.getenv("BUYER_ROLE_NAME", "Royal Customer")
 DANA_NUMBER = os.getenv("DANA_NUMBER", "")
 BCA_NUMBER = os.getenv("BCA_NUMBER", "")
-RATE = int(os.getenv("RATE", 85))
 LOG_CHANNEL_ID = os.getenv("LOG_CHANNEL_ID")
 
 DB_NAME = "store.db"

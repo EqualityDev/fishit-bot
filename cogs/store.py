@@ -8,7 +8,7 @@ from config import (
     STAFF_ROLE_NAME,
     DANA_NUMBER,
     BCA_NUMBER,
-    RATE,
+
     CATEGORY_PRIORITY,
     STORE_THUMBNAIL,
     STORE_BANNER,
@@ -122,7 +122,7 @@ class StoreCog(commands.Cog):
 
         embed = discord.Embed(
             title="CELLYN STORE - READY STOCK",
-            description=f"Rate: 1 RBX = Rp {RATE:,}\nPayment: QRIS / DANA / BCA",
+            description="Payment: QRIS / DANA / BCA\n⚠️ Harga item Robux dapat berubah mengikuti rate pasar saat ini.",
             color=0x00BFFF,
         )
         embed.set_thumbnail(url=STORE_THUMBNAIL)
@@ -155,10 +155,6 @@ class StoreCog(commands.Cog):
 
         await interaction.response.send_message(embed=embed, view=view)
 
-    @app_commands.command(name="rate", description="Cek rate Robux")
-    async def rate_cmd(self, interaction: discord.Interaction):
-        await interaction.response.send_message(f"1000 RBX = Rp {RATE:,}")
-
     @app_commands.command(name="help", description="Bantuan menggunakan bot CELLYN STORE")
     async def help_command(self, interaction: discord.Interaction):
         pages = [
@@ -178,7 +174,6 @@ class StoreCog(commands.Cog):
                 "title": "COMMAND CUSTOMER",
                 "description": (
                     "`/catalog` — Lihat semua item\n"
-                    "`/rate` — Cek rate Robux\n"
                     "`/history` — Riwayat transaksi\n"
                     "`/items` — Item di tiket aktif\n"
                     "`/additem` — Tambah item ke tiket\n"
@@ -196,7 +191,6 @@ class StoreCog(commands.Cog):
                     "`/deleteitem` — Hapus produk\n"
                     "`/listitems` — Daftar semua item\n"
                     "`/importproduk` — Import dari Excel/CSV\n"
-                    "`/setrate` — Update rate Robux\n"
                     "`/uploadqris` — Upload QRIS\n"
                     "`/refreshcatalog` — Refresh catalog\n"
                     "`/spotlight` — Buat embed spotlight\n"
@@ -559,17 +553,6 @@ class StoreCog(commands.Cog):
             color=0x00BFFF,
         )
         await interaction.response.send_message(embed=embed)
-
-    @app_commands.command(name="setrate", description="[ADMIN] Update rate Robux")
-    @app_commands.describe(rate="1000 RBX = berapa IDR?")
-    async def setrate(self, interaction: discord.Interaction, rate: int):
-        global RATE
-        if not is_staff(interaction):
-            await interaction.response.send_message("Admin only!", ephemeral=True, delete_after=5)
-            return
-        import config
-        config.RATE = rate
-        await interaction.response.send_message(f"Rate updated: 1000 RBX = Rp {rate:,}")
 
     # ─── QRIS ────────────────────────────────────────────────────
 
