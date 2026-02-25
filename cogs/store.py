@@ -61,7 +61,7 @@ class SpotlightModal(discord.ui.Modal, title="Buat Spotlight"):
         embed = discord.Embed(
             title=self.judul.value,
             description=self.deskripsi.value,
-            color=0x00BFFF,
+            color=0xFFD700,
             timestamp=datetime.now(),
         )
         embed.set_image(url=self.gambar_url.value.strip())
@@ -123,7 +123,7 @@ class StoreCog(commands.Cog):
         embed = discord.Embed(
             title="CELLYN STORE - READY STOCK",
             description=f"Rate: 1 RBX = Rp {RATE:,}\nPayment: QRIS / DANA / BCA",
-            color=0x00BFFF,
+            color=0x00FF00,
         )
         embed.set_thumbnail(url=STORE_THUMBNAIL)
         embed.set_image(url=STORE_BANNER)
@@ -164,7 +164,7 @@ class StoreCog(commands.Cog):
         embed = discord.Embed(
             title="BANTUAN CELLYN STORE",
             description="Selamat datang di Cellyn Store!",
-            color=0x00BFFF,
+            color=0x00FF00,
         )
         embed.set_thumbnail(url=STORE_THUMBNAIL)
         embed.add_field(
@@ -227,7 +227,7 @@ class StoreCog(commands.Cog):
         embed = discord.Embed(
             title="✅ PRODUK DITAMBAHKAN",
             description=f"**ID:** {id}\n**Nama:** {name}\n**Harga:** Rp {price:,}\n**Kategori:** {category.upper()}",
-            color=0x00BFFF,
+            color=0x00FF00,
         )
         await interaction.response.send_message(embed=embed)
 
@@ -252,7 +252,7 @@ class StoreCog(commands.Cog):
         embed = discord.Embed(
             title="💰 HARGA DIUPDATE",
             description=f"**Item:** {item['name']}\n**Lama:** Rp {old_price:,}\n**Baru:** Rp {new_price:,}",
-            color=0x00BFFF,
+            color=0x00FF00,
         )
         await interaction.response.send_message(embed=embed)
 
@@ -274,7 +274,7 @@ class StoreCog(commands.Cog):
         embed = discord.Embed(
             title="📝 NAMA DIUPDATE",
             description=f"**ID:** {item_id}\n**Lama:** {old_name}\n**Baru:** {new_name}",
-            color=0x00BFFF,
+            color=0x00FF00,
         )
         await interaction.response.send_message(embed=embed)
 
@@ -295,7 +295,7 @@ class StoreCog(commands.Cog):
         embed = discord.Embed(
             title="🗑️ ITEM DIHAPUS",
             description=f"**ID:** {item_id}\n**Nama:** {item['name']}\n**Harga:** Rp {item['price']:,}",
-            color=0x00BFFF,
+            color=0xFF0000,
         )
         await interaction.response.send_message(embed=embed)
 
@@ -308,7 +308,7 @@ class StoreCog(commands.Cog):
         categories = {}
         for p in self.bot.PRODUCTS:
             categories.setdefault(p["category"], []).append(p)
-        embed = discord.Embed(title="📋 DAFTAR ITEM CELLYN STORE", color=0x00BFFF, timestamp=datetime.now())
+        embed = discord.Embed(title="📋 DAFTAR ITEM CELLYN STORE", color=0x00FF00, timestamp=datetime.now())
         for cat, items in categories.items():
             value = "".join(f"ID:{item['id']} - {item['name']} - Rp {item['price']:,}\n" for item in items)
             embed.add_field(name=cat, value=value[:1024], inline=False)
@@ -331,18 +331,13 @@ class StoreCog(commands.Cog):
         if not item:
             await interaction.response.send_message("❌ Item tidak ditemukan!", ephemeral=True)
             return
-        # Limit spotlight maksimal 5
-        spotlight_count = sum(1 for p in self.bot.PRODUCTS if p.get("spotlight"))
-        if spotlight_count >= 5 and not item.get("spotlight"):
-            await interaction.response.send_message("❌ Maksimal 5 produk spotlight! Hapus salah satu dulu dengan /unsetspotlight.", ephemeral=True)
-            return
         item["spotlight"] = 1
         await self.bot.db.set_spotlight(item_id, 1)
         self.bot.products_cache.invalidate()
         embed = discord.Embed(
-            title="SPOTLIGHT DIAKTIFKAN",
+            title="🔦 SPOTLIGHT DIAKTIFKAN",
             description=f"**{item['name']}** sekarang tampil di spotlight catalog!",
-            color=0x00BFFF,
+            color=0x00FF00,
         )
         await interaction.response.send_message(embed=embed)
 
@@ -362,7 +357,7 @@ class StoreCog(commands.Cog):
         embed = discord.Embed(
             title="🔦 SPOTLIGHT DINONAKTIFKAN",
             description=f"**{item['name']}** dihapus dari spotlight.",
-            color=0x00BFFF,
+            color=0xFF0000,
         )
         await interaction.response.send_message(embed=embed)
 
@@ -376,7 +371,7 @@ class StoreCog(commands.Cog):
         if not spotlight:
             await interaction.response.send_message("📝 Belum ada produk spotlight.", ephemeral=True)
             return
-        embed = discord.Embed(title="🔦 PRODUK SPOTLIGHT", color=0x00BFFF)
+        embed = discord.Embed(title="🔦 PRODUK SPOTLIGHT", color=0x00FF00)
         for p in spotlight:
             embed.add_field(name=f"ID:{p['id']} — {p['name']}", value=f"Rp {p['price']:,}", inline=False)
         await interaction.response.send_message(embed=embed)
@@ -398,7 +393,7 @@ class StoreCog(commands.Cog):
         embed = discord.Embed(
             title="🔄 CATALOG REFRESHED",
             description=f"Total item: {len(self.bot.PRODUCTS)}",
-            color=0x00BFFF,
+            color=0x00FF00,
         )
         await interaction.response.send_message(embed=embed)
 
@@ -434,7 +429,7 @@ class StoreCog(commands.Cog):
                     interaction.guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True),
                 },
             )
-        embed = discord.Embed(title="QRIS PAYMENT", color=0x00BFFF)
+        embed = discord.Embed(title="QRIS PAYMENT", color=0x00FF00)
         embed.set_image(url=image.url)
         embed.set_footer(text=f"Uploaded by {interaction.user.name}")
         await qr_channel.send(embed=embed)
@@ -465,7 +460,7 @@ class StoreCog(commands.Cog):
         embed = discord.Embed(
             title="RIWAYAT TRANSAKSI",
             description=f"Total: {len(all_user)} transaksi",
-            color=0x00BFFF,
+            color=0x3498DB,
         )
         for t in reversed(last_5):
             ts = t["timestamp"] if isinstance(t["timestamp"], datetime) else datetime.fromisoformat(t["timestamp"])
@@ -494,7 +489,7 @@ class StoreCog(commands.Cog):
         embed = discord.Embed(
             title=f"📋 SEMUA TRANSAKSI {user.name}",
             description=f"Total: **{len(all_trans)}** | Belanja: **Rp {total_spent:,}**",
-            color=0x00BFFF,
+            color=0x3498DB,
         )
         for t in all_trans[-10:]:
             ts = t["timestamp"] if isinstance(t["timestamp"], datetime) else datetime.fromisoformat(t["timestamp"])
@@ -581,7 +576,7 @@ class StoreCog(commands.Cog):
         embed = discord.Embed(
             title="➕ ITEM DITAMBAHKAN",
             description=f"**{qty}x {item['name']}** berhasil ditambahkan!",
-            color=0x00BFFF,
+            color=0x00FF00,
         )
         embed.add_field(name="🛒 ITEMS SAAT INI", value=format_items(ticket["items"]), inline=False)
         embed.add_field(name="💰 TOTAL", value=f"Rp {ticket['total_price']:,}", inline=False)
@@ -623,7 +618,7 @@ class StoreCog(commands.Cog):
             await self.bot.db.delete_ticket(channel_id)
             await interaction.channel.delete()
             return
-        embed = discord.Embed(title="➖ ITEM DIHAPUS", description=removal_msg, color=0x00BFFF)
+        embed = discord.Embed(title="➖ ITEM DIHAPUS", description=removal_msg, color=0xFFA500)
         embed.add_field(name="🛒 ITEMS SAAT INI", value=format_items(ticket["items"]), inline=False)
         embed.add_field(name="💰 TOTAL", value=f"Rp {ticket['total_price']:,}", inline=False)
         await interaction.response.send_message(embed=embed)
@@ -641,7 +636,7 @@ class StoreCog(commands.Cog):
         embed = discord.Embed(
             title="🛒 DAFTAR ITEM",
             description=format_items(ticket["items"]) or "Belum ada item",
-            color=0x00BFFF,
+            color=0x3498DB,
         )
         embed.add_field(name="💰 TOTAL", value=f"Rp {ticket['total_price']:,}", inline=False)
         await interaction.response.send_message(embed=embed, ephemeral=True)
