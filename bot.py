@@ -73,7 +73,6 @@ async def auto_backup():
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             backup_name = f"{BACKUP_DIR}/store_backup_{timestamp}.db"
             shutil.copy2(DB_NAME, backup_name)
-            cleanup_old_backups()
             logger.info(f"✅ Auto backup berhasil: {backup_name}")
             for guild in bot.guilds:
                 try:
@@ -97,6 +96,7 @@ async def auto_backup():
                     )
                 except Exception as e:
                     logger.error(f"❌ Gagal kirim backup ke Discord: {e}")
+            cleanup_old_backups()
         except Exception as e:
             logger.error(f"❌ Gagal auto backup: {e}")
 
