@@ -12,39 +12,47 @@
 - Auto-generated invoice numbers (daily reset, format `INV-YYYYMMDD-0001`)
 - Invoice sent to customer via **DM** + logged to **#log-transaksi**
 - HTML transcript saved on ticket close
-- Payment proof upload before confirming PAID
+- Anti-spam ticket — 1 active ticket per user, redirects to existing ticket
 
 ### 📦 Product Catalog
 - Dynamic catalog with category buttons
 - Spotlight system — pin up to 5 featured products
 - Quantity adjustment (+/-) inside ticket
-- Live cache with auto-refresh
+- Import products via Excel/CSV directly from Discord (`/importproduk`)
 
 ### 🔐 Admin Tools
 - `/addproduct`, `/editprice`, `/editname`, `/deleteitem`
+- `/importproduk` — bulk import products from `.xlsx` or `.csv` file
 - `/blacklist` / `/unblacklist` user management
 - `/broadcast` with preview before sending
 - `/stats`, `/statdetail`, `/allhistory`, `/export` (CSV)
 - `/backup`, `/listbackup`, `/restore` — manual DB management
 - `/resetdb`, `/cleanupstats` with modal confirmation
 
+### 🎉 Giveaway System
+- `/giveaway` — start giveaway with duration (10m, 2h, 1d) and winner count
+- React 🎉 to join
+- `/giveaway_end` — end early
+- `/giveaway_reroll` — reroll winner
+- `/giveaway_list` — view active giveaways
+
 ### ⚙️ Automation
 - **Auto Backup** — runs on bot start + every 6 hours, sent to `#backup-db`
-- **Auto Daily Summary** — sent every midnight to `#backup-db` with total transactions, revenue, and payment breakdown
+- **Auto Daily Summary** — sent every midnight to `#backup-db`
+- **Error Logging** — all errors automatically sent to `#backup-db`
 - **Backup Retention** — keeps only the last 5 local backups
 - **Member Count** — voice channel auto-updated every 10 minutes
 
 ### 🎯 Auto React
-- `/setreact` — auto-react to staff messages in specific channels
-- `/setreactall` — auto-react to all messages in specific channels
-- 3-second cooldown per channel to prevent rate limiting
+- `/setreact` — auto-react to staff messages
+- `/setreactall` — auto-react to all messages
+- 3-second cooldown per channel, max 10 emoji
 
 ### 🔒 Safety & Reliability
-- SQLite with **WAL mode** — no database locked errors under concurrent load
-- `active_tickets` re-hydrated from DB on bot restart — no lost ticket data
-- DB as **single source of truth** for products — no overwrite on restart
+- SQLite with **WAL mode** — no database locked errors
+- `active_tickets` re-hydrated from DB on bot restart
+- DB as **single source of truth** for products
 - Invoice counter stored in DB — safe from file corruption
-- `!cancel` restricted to ticket owner or staff only
 
 ---
 
@@ -60,37 +68,26 @@ cellyn-store-bot/
 ├── .env                # Secret config (not committed)
 ├── .env.example        # Environment variable template
 ├── setup.sh            # One-time install script
-├── import_products.py  # Excel/CSV product importer
+├── import_products.py  # CLI product importer (Excel/CSV)
 └── cogs/
     ├── react.py        # Auto-react system
     ├── admin.py        # Admin commands
     ├── store.py        # Store commands and catalog
-    └── ticket.py       # Ticket system and interaction handlers
+    ├── ticket.py       # Ticket system
+    └── giveaway.py     # Giveaway system
 ```
 
 ---
 
 ## 🚀 Installation (Termux / Linux)
 
-### Requirements
-- Python 3.10+
-- Termux (Android) or any Linux environment
-- A Discord Bot Token
-
 ### Quick Setup
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/EqualityDev/fishit-bot.git
 cd fishit-bot
-
-# 2. Run the setup script
 bash setup.sh
-
-# 3. Fill in your .env file
 nano .env
-
-# 4. Start the bot
 python3 bot.py
 ```
 
@@ -112,35 +109,25 @@ BROADCAST_BANNER=https://your-broadcast-banner-url.png
 
 ---
 
-## 📥 Importing Products via Excel
+## 📥 Importing Products
 
-You can bulk-import products using an Excel or CSV file.
+### Via Discord (Recommended)
+1. Download template: `template_produk_cellyn.xlsx`
+2. Fill in your products
+3. In Discord: `/importproduk` → upload file
+4. Done — catalog updates instantly
 
-### 1. Prepare your Excel file
+### Via CLI (Termux)
+```bash
+python3 import_products.py products.csv
+```
+
+### Template Format
 
 | id | name | price | category |
 |----|------|-------|----------|
 | 1 | Nitro 1 Month | 75000 | NITRO |
-| 2 | Nitro 3 Month | 200000 | NITRO |
-| 3 | Robux 1000 | 85000 | ROBUX |
-
-### 2. Export as CSV
-In Excel: `File → Save As → CSV (Comma delimited)`
-
-### 3. Run the importer
-
-```bash
-python3 import_products.py products_data.csv
-```
-
-### 4. Restart the bot
-```bash
-python3 bot.py
-```
-
-Products will be imported to the database and appear in `/catalog` immediately.
-
-> **Note:** If the database already has products, the importer will **merge** — existing IDs are updated, new IDs are added. No data is lost.
+| 2 | Robux 1000 | 85000 | ROBUX |
 
 ---
 
@@ -149,14 +136,14 @@ Products will be imported to the database and appear in `/catalog` immediately.
 ### Customer Commands
 | Command | Description |
 |---------|-------------|
-| `/catalog` | Browse all products by category |
+| `/catalog` | Browse all products |
 | `/rate` | Check current Robux rate |
-| `/history` | View your own transaction history |
-| `/items` | View items in your active ticket |
-| `/additem` | Add item to active ticket |
-| `/removeitem` | Remove item from active ticket |
-| `/qris` | View QRIS payment QR code |
-| `!cancel` | Cancel your active ticket |
+| `/history` | View transaction history |
+| `/items` | View items in active ticket |
+| `/additem` | Add item to ticket |
+| `/removeitem` | Remove item from ticket |
+| `/qris` | View QRIS QR code |
+| `!cancel` | Cancel active ticket |
 
 ### Admin Commands
 | Command | Description |
@@ -165,28 +152,33 @@ Products will be imported to the database and appear in `/catalog` immediately.
 | `/editprice` | Edit product price |
 | `/editname` | Edit product name |
 | `/deleteitem` | Delete a product |
-| `/listitems` | List all products (sent via DM) |
+| `/listitems` | List all products |
+| `/importproduk` | Import products from Excel/CSV |
 | `/setrate` | Update Robux rate |
 | `/uploadqris` | Upload QRIS image |
-| `/setspotlight` | Pin a product to spotlight (max 5) |
-| `/unsetspotlight` | Remove product from spotlight |
-| `/listspotlight` | View all spotlight products |
-| `/stats` | View sales statistics |
-| `/statdetail` | View detailed statistics |
-| `/allhistory` | View all transactions for a user |
-| `/export` | Export transaction data as CSV |
-| `/broadcast` | Send message to all members (with preview) |
+| `/setspotlight` | Pin product to spotlight (max 5) |
+| `/unsetspotlight` | Remove from spotlight |
+| `/listspotlight` | View spotlight products |
+| `/stats` | Sales statistics |
+| `/statdetail` | Detailed statistics |
+| `/allhistory` | All transactions for a user |
+| `/export` | Export data as CSV |
+| `/broadcast` | Send message to all members |
 | `/blacklist` | Blacklist a user |
-| `/unblacklist` | Remove user from blacklist |
+| `/unblacklist` | Remove from blacklist |
 | `/backup` | Manual database backup |
 | `/listbackup` | List available backups |
 | `/restore` | Restore a backup |
-| `/resetdb` | Reset database (requires confirmation) |
-| `/cleanupstats` | Clean up old statistics |
-| `/fakeinvoice` | Generate a test invoice |
-| `/setreact` | Set auto-react for staff messages |
-| `/setreactall` | Set auto-react for all messages |
-| `/reactlist` | View auto-react configuration |
+| `/resetdb` | Reset database |
+| `/cleanupstats` | Clean up statistics |
+| `/fakeinvoice` | Generate test invoice |
+| `/giveaway` | Start a giveaway |
+| `/giveaway_end` | End giveaway early |
+| `/giveaway_reroll` | Reroll winner |
+| `/giveaway_list` | View active giveaways |
+| `/setreact` | Set auto-react (staff) |
+| `/setreactall` | Set auto-react (all) |
+| `/reactlist` | View auto-react config |
 | `/ping` | Check bot status |
 | `/reboot` | Restart the bot |
 
@@ -200,28 +192,15 @@ Products will be imported to the database and appear in `/catalog` immediately.
 | Discord Library | discord.py 2.x |
 | Database | SQLite (WAL mode) |
 | Async DB | aiosqlite |
+| Excel Import | openpyxl |
 | Config | python-dotenv |
 | Deployment | Termux (Android) |
 
 ---
 
-## 📊 Database Schema
-
-```sql
-transactions   — invoice, user_id, items, total_price, payment_method, timestamp
-products       — id, name, price, category, spotlight
-blacklist      — user_id, reason, timestamp
-active_tickets — channel_id, user_id, items, total_price, payment_method, status, created_at
-auto_react     — channel_id, emojis (staff only)
-auto_react_all — channel_id, emojis (all users)
-settings       — key, value (invoice counter, qris_url, etc.)
-```
-
----
-
 ## 📝 License
 
-This project is private and proprietary.
+This project is private and proprietary.  
 All rights reserved © 2026 **Cellyn Store**
 
 ---
@@ -230,8 +209,5 @@ All rights reserved © 2026 **Cellyn Store**
 
 **Developed by:** EqualityDev  
 **Store:** Cellyn Store  
-**Discord:** [Join our server](https://discord.gg/yourlink)
-
----
 
 *Built with ❤️ for Cellyn Store*

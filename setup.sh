@@ -7,7 +7,7 @@ echo ""
 
 # Install Python packages
 echo "📦 Installing dependencies..."
-pip install discord.py python-dotenv aiosqlite --break-system-packages
+pip install discord.py python-dotenv aiosqlite openpyxl openpyxl --break-system-packages
 
 # Install openpyxl untuk Excel importer (optional)
 pip install openpyxl --break-system-packages 2>/dev/null
