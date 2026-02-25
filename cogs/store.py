@@ -195,6 +195,7 @@ class StoreCog(commands.Cog):
                     "`/editname` — Ubah nama\n"
                     "`/deleteitem` — Hapus produk\n"
                     "`/listitems` — Daftar semua item\n"
+                    "`/importproduk` — Import dari Excel/CSV\n"
                     "`/setrate` — Update rate Robux\n"
                     "`/uploadqris` — Upload QRIS\n"
                     "`/refreshcatalog` — Refresh catalog\n"
@@ -451,6 +452,100 @@ class StoreCog(commands.Cog):
         await interaction.response.send_message(
             f"✅ Cache refreshed! {len(self.bot.products_cache.data)} products loaded"
         )
+
+    @app_commands.command(name="importproduk", description="[ADMIN] Import produk dari file Excel/CSV")
+    @app_commands.describe(file="Upload file .xlsx atau .csv")
+    async def import_produk(self, interaction: discord.Interaction, file: discord.Attachment):
+        if not is_staff(interaction):
+            await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+            return
+
+        filename = file.filename.lower()
+        if not (filename.endswith(".xlsx") or filename.endswith(".csv")):
+            await interaction.response.send_message("❌ Format file harus `.xlsx` atau `.csv`!", ephemeral=True)
+            return
+
+        await interaction.response.defer()
+
+        try:
+            import io
+            file_bytes = await file.read()
+
+            products = []
+            errors = []
+
+            if filename.endswith(".csv"):
+                import csv
+                text = file_bytes.decode("utf-8-sig")
+                reader = csv.DictReader(io.StringIO(text))
+                for i, row in enumerate(reader, start=2):
+                    try:
+                        products.append({
+                            "id": int(str(row["id"]).strip()),
+                            "name": str(row["name"]).strip(),
+                            "price": int(str(row["price"]).strip().replace(",", "").replace(".", "")),
+                            "category": str(row["category"]).strip().upper(),
+                            "spotlight": 0,
+                        })
+                    except Exception as e:
+                        errors.append(f"Baris {i}: {e}")
+
+            elif filename.endswith(".xlsx"):
+                try:
+                    import openpyxl
+                except ImportError:
+                    await interaction.followup.send("❌ Library `openpyxl` belum terinstall di server. Jalankan: `pip install openpyxl --break-system-packages` di Termux.")
+                    return
+
+                wb = openpyxl.load_workbook(io.BytesIO(file_bytes))
+                ws = wb.active
+                headers = [str(c.value).strip().lower() if c.value else "" for c in ws[1]]
+                for i, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+                    data = dict(zip(headers, row))
+                    if not data.get("id"):
+                        continue
+                    try:
+                        products.append({
+                            "id": int(data["id"]),
+                            "name": str(data["name"]).strip(),
+                            "price": int(str(data["price"]).replace(",", "").replace(".", "")),
+                            "category": str(data["category"]).strip().upper(),
+                            "spotlight": 0,
+                        })
+                    except Exception as e:
+                        errors.append(f"Baris {i}: {e}")
+
+            if not products:
+                await interaction.followup.send("❌ Tidak ada produk yang bisa diimport. Pastikan format kolom: `id`, `name`, `price`, `category`")
+                return
+
+            # Merge ke PRODUCTS yang ada
+            added, updated = 0, 0
+            existing_ids = {p["id"]: i for i, p in enumerate(self.bot.PRODUCTS)}
+            for p in products:
+                if p["id"] in existing_ids:
+                    self.bot.PRODUCTS[existing_ids[p["id"]]].update({
+                        "name": p["name"], "price": p["price"], "category": p["category"]
+                    })
+                    updated += 1
+                else:
+                    self.bot.PRODUCTS.append(p)
+                    added += 1
+
+            self.bot.PRODUCTS.sort(key=lambda x: x["id"])
+            save_products_json(self.bot.PRODUCTS)
+            await self.bot.db.save_products(self.bot.PRODUCTS)
+            self.bot.products_cache.invalidate()
+
+            desc = f"✅ **{added}** produk ditambahkan\n✏️ **{updated}** produk diupdate\n📦 Total: **{len(self.bot.PRODUCTS)}** produk"
+            if errors:
+                desc += f"\n\n⚠️ **{len(errors)} baris dilewati:**\n" + "\n".join(errors[:5])
+
+            embed = discord.Embed(title="IMPORT PRODUK SELESAI", description=desc, color=0x00BFFF)
+            await interaction.followup.send(embed=embed)
+
+        except Exception as e:
+            await interaction.followup.send(f"❌ Error: {e}")
 
     @app_commands.command(name="refreshcatalog", description="[ADMIN] Refresh catalog tanpa restart")
     async def refresh_catalog(self, interaction: discord.Interaction):
