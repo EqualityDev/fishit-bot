@@ -153,7 +153,8 @@ async def update_member_count(guild):
         category = discord.utils.get(guild.categories, name="SERVER STATS")
         if not category:
             category = await guild.create_category("SERVER STATS")
-        channel_name = f"Member: {guild.member_count}"
+        human_count = sum(1 for m in guild.members if not m.bot)
+        channel_name = f"Member: {human_count}"
         existing = [c for c in guild.voice_channels if c.name.startswith("Member:")]
         if existing:
             if existing[0].name != channel_name:
