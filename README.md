@@ -19,12 +19,13 @@
 - Spotlight system — pin up to 5 featured products
 - Quantity adjustment (+/-) inside ticket
 - Import products via Excel/CSV directly from Discord (`/importproduk`)
+- Harga item Robux mengikuti rate pasar saat ini
 
 ### 🔐 Admin Tools
 - `/addproduct`, `/editprice`, `/editname`, `/deleteitem`
 - `/importproduk` — bulk import products from `.xlsx` or `.csv` file
 - `/blacklist` / `/unblacklist` user management
-- `/broadcast` with preview before sending
+- `/broadcast` with preview before sending + log to `#backup-db`
 - `/stats`, `/statdetail`, `/allhistory`, `/export` (CSV)
 - `/backup`, `/listbackup`, `/restore` — manual DB management
 - `/resetdb`, `/cleanupstats` with modal confirmation
@@ -41,7 +42,7 @@
 - **Auto Daily Summary** — sent every midnight to `#backup-db`
 - **Error Logging** — all errors automatically sent to `#backup-db`
 - **Backup Retention** — keeps only the last 5 local backups
-- **Member Count** — voice channel auto-updated every 10 minutes
+- **Member Count** — voice channel auto-updated every 10 minutes (excludes bots)
 
 ### 🎯 Auto React
 - `/setreact` — auto-react to staff messages
@@ -97,15 +98,17 @@ python3 bot.py
 DISCORD_TOKEN=your_bot_token_here
 DANA_NUMBER=08xxxxxxxxxx
 BCA_NUMBER=1234567890
-RATE=85
 STAFF_ROLE_NAME=Admin Store
 BUYER_ROLE_NAME=Royal Customer
 LOG_CHANNEL_ID=
 STORE_THUMBNAIL=https://your-thumbnail-url.png
-STORE_BANNER=https://your-banner-url.png
-INVOICE_BANNER=https://your-invoice-banner-url.png
+STORE_BANNER=https://your-catalog-banner-url.png
+INVOICE_BANNER=https://your-terimakasih-banner-url.png
 BROADCAST_BANNER=https://your-broadcast-banner-url.png
+WELCOME_BANNER=https://your-welcome-banner-url.png
 ```
+
+> Semua variabel banner bersifat opsional — jika tidak diisi, bot menggunakan banner default Cellyn Store.
 
 ---
 
@@ -137,7 +140,6 @@ python3 import_products.py products.csv
 | Command | Description |
 |---------|-------------|
 | `/catalog` | Browse all products |
-| `/rate` | Check current Robux rate |
 | `/history` | View transaction history |
 | `/items` | View items in active ticket |
 | `/additem` | Add item to ticket |
@@ -154,7 +156,6 @@ python3 import_products.py products.csv
 | `/deleteitem` | Delete a product |
 | `/listitems` | List all products |
 | `/importproduk` | Import products from Excel/CSV |
-| `/setrate` | Update Robux rate |
 | `/uploadqris` | Upload QRIS image |
 | `/setspotlight` | Pin product to spotlight (max 5) |
 | `/unsetspotlight` | Remove from spotlight |
@@ -194,7 +195,7 @@ python3 import_products.py products.csv
 | Async DB | aiosqlite |
 | Excel Import | openpyxl |
 | Config | python-dotenv |
-| Deployment | Termux (Android) |
+| Deployment | Railway / Termux (Android) |
 
 ---
 
