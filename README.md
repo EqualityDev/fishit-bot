@@ -85,10 +85,43 @@ cellyn-store-bot/
 ### Quick Setup
 
 ```bash
+# 1. Install pip dulu (khusus Termux)
+pkg install python-pip
+
+# 2. Clone repo
 git clone https://github.com/EqualityDev/fishit-bot.git
 cd fishit-bot
+
+# 3. Install dependencies
 bash setup.sh
+
+# 4. Isi konfigurasi
 nano .env
+
+# 5. Jalankan bot
+python3 bot.py
+```
+
+### Jalankan di Background (Termux)
+
+Supaya bot tetap jalan meski Termux ditutup:
+
+```bash
+pkg install screen
+screen -S cellyn
+python3 bot.py
+```
+
+Tekan `Ctrl+A` lalu `D` untuk detach. Untuk kembali ke sesi:
+```bash
+screen -r cellyn
+```
+
+### Update Bot (setelah ada commit baru)
+
+```bash
+cd ~/fishit-bot
+git pull
 python3 bot.py
 ```
 
@@ -101,6 +134,7 @@ BCA_NUMBER=1234567890
 STAFF_ROLE_NAME=Admin Store
 BUYER_ROLE_NAME=Royal Customer
 LOG_CHANNEL_ID=
+STORE_NAME=Nama Toko Kamu
 STORE_THUMBNAIL=https://your-thumbnail-url.png
 STORE_BANNER=https://your-catalog-banner-url.png
 INVOICE_BANNER=https://your-terimakasih-banner-url.png
@@ -108,7 +142,7 @@ BROADCAST_BANNER=https://your-broadcast-banner-url.png
 WELCOME_BANNER=https://your-welcome-banner-url.png
 ```
 
-> Semua variabel banner bersifat opsional — jika tidak diisi, bot menggunakan banner default Cellyn Store.
+> Semua variabel banner bersifat opsional — jika tidak diisi, bot menggunakan banner default.
 
 ---
 
@@ -195,7 +229,7 @@ python3 import_products.py products.csv
 | Async DB | aiosqlite |
 | Excel Import | openpyxl |
 | Config | python-dotenv |
-| Deployment | Railway / Termux (Android) |
+| Deployment | Termux (Android) / Railway |
 
 ---
 
