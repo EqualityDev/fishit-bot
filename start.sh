@@ -32,9 +32,9 @@ if [ "$LOCAL" != "$REMOTE" ]; then
         echo ""
     fi
 else
-    echo "✅ Bot sudah versi terbaru!"
+    echo "✓ Bot sudah versi terbaru!"
     echo ""
 fi
 
-echo "🚀 Menjalankan bot..."
+echo "Menjalankan BOT..."
 python3 bot.py

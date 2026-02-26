@@ -73,7 +73,7 @@ async def auto_backup():
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             backup_name = f"{BACKUP_DIR}/store_backup_{timestamp}.db"
             shutil.copy2(DB_NAME, backup_name)
-            logger.info(f"✅ Auto backup berhasil: {backup_name}")
+            logger.info(f"✓ Auto backup berhasil: {backup_name}")
             for guild in bot.guilds:
                 try:
                     backup_channel = discord.utils.get(guild.channels, name="backup-db")
@@ -88,7 +88,7 @@ async def auto_backup():
                         backup_channel = await guild.create_text_channel(
                             name="backup-db",
                             overwrites=overwrites,
-                            topic="🔒 Backup otomatis database Cellyn Store",
+                            topic=f"🔒 Backup otomatis database {STORE_NAME}",
                         )
                     await backup_channel.send(
                         content=f"🗄️ **AUTO BACKUP**\n📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}\n📦 `{backup_name}`",
@@ -137,13 +137,13 @@ async def auto_daily_summary():
             embed.add_field(name="Metode Bayar", value=method_str, inline=False)
             if total_trx == 0:
                 embed.description = "Tidak ada transaksi hari ini."
-            embed.set_footer(text="CELLYN STORE • Auto Summary")
+            embed.set_footer(text=f"{STORE_NAME} • Auto Summary")
 
             for guild in bot.guilds:
                 backup_channel = discord.utils.get(guild.channels, name="backup-db")
                 if backup_channel:
                     await backup_channel.send(embed=embed)
-            logger.info(f"✅ Auto summary terkirim untuk {yesterday}")
+            logger.info(f"✓ Auto summary terkirim untuk {yesterday}")
         except Exception as e:
             logger.error(f"❌ Gagal auto summary: {e}")
 
@@ -268,6 +268,6 @@ if __name__ == "__main__":
     if not TOKEN:
         print("ERROR: DISCORD_TOKEN not found in .env")
         exit(1)
-    print("Starting Cellyn Store Bot...")
+    print(f"Starting {STORE_NAME} Bot...")
     print("Under develop Equality")
     asyncio.run(main())
