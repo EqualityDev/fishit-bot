@@ -1,10 +1,10 @@
-# 🛒 Cellyn Store Bot
+# 🛒 QUANTUM BOT
 
 > A fully-featured Discord store bot for digital product sales — built with Python, discord.py, and SQLite.
 
 ---
 
-## ✨ Features
+## Features
 
 ### 🧾 Transaction System
 - Interactive ticket-based order flow
@@ -14,14 +14,14 @@
 - HTML transcript saved on ticket close
 - Anti-spam ticket — 1 active ticket per user, redirects to existing ticket
 
-### 📦 Product Catalog
+### Product Catalog
 - Dynamic catalog with category buttons
 - Spotlight system — pin up to 5 featured products
 - Quantity adjustment (+/-) inside ticket
 - Import products via Excel/CSV directly from Discord (`/importproduk`)
 - Harga item Robux mengikuti rate pasar saat ini
 
-### 🔐 Admin Tools
+### Admin Tools
 - `/addproduct`, `/editprice`, `/editname`, `/deleteitem`
 - `/importproduk` — bulk import products from `.xlsx` or `.csv` file
 - `/blacklist` / `/unblacklist` user management
@@ -30,7 +30,7 @@
 - `/backup`, `/listbackup`, `/restore` — manual DB management
 - `/resetdb`, `/cleanupstats` with modal confirmation
 
-### 🎉 Giveaway System
+### Giveaway System
 - `/giveaway` — start giveaway with duration (10m, 2h, 1d) and winner count
 - React 🎉 to join
 - `/giveaway_end` — end early
@@ -44,12 +44,12 @@
 - **Backup Retention** — keeps only the last 5 local backups
 - **Member Count** — voice channel auto-updated every 10 minutes (excludes bots)
 
-### 🎯 Auto React
+### Auto React
 - `/setreact` — auto-react to staff messages
 - `/setreactall` — auto-react to all messages
 - 3-second cooldown per channel, max 10 emoji
 
-### 🔒 Safety & Reliability
+### Safety & Reliability
 - SQLite with **WAL mode** — no database locked errors
 - `active_tickets` re-hydrated from DB on bot restart
 - DB as **single source of truth** for products
@@ -81,7 +81,7 @@ cellyn-store-bot/
 
 ---
 
-## 🚀 Installation (Termux / Linux)
+## Installation (Termux / Linux)
 
 ### Quick Setup
 
@@ -241,13 +241,10 @@ python3 import_products.py products.csv
 ## 📝 License
 
 This project is private and proprietary.  
-All rights reserved © 2026 **Cellyn Store**
+All rights reserved © 2026 **Quantum BOT**
 
 ---
 
 ## 👤 Credits
 
 **Developed by:** EqualityDev  
-**Store:** Cellyn Store  
-
-*Built with ❤️ for Cellyn Store*
