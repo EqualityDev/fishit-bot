@@ -5,6 +5,7 @@ from discord import app_commands
 from discord.ext import commands
 from datetime import datetime
 from config import (
+    STORE_NAME,
     STAFF_ROLE_NAME,
     DANA_NUMBER,
     BCA_NUMBER,
@@ -66,7 +67,7 @@ class SpotlightModal(discord.ui.Modal, title="Buat Spotlight"):
         )
         embed.set_image(url=self.gambar_url.value.strip())
         embed.set_thumbnail(url=STORE_THUMBNAIL)
-        embed.set_footer(text="CELLYN STORE • SPOTLIGHT", icon_url=STORE_THUMBNAIL)
+        embed.set_footer(text=f"{STORE_NAME} • SPOTLIGHT", icon_url=STORE_THUMBNAIL)
 
         view = discord.ui.View()
 
@@ -121,7 +122,7 @@ class StoreCog(commands.Cog):
         order += [c for c in all_cats if c not in order]
 
         embed = discord.Embed(
-            title="CELLYN STORE - READY STOCK",
+            title=f"{STORE_NAME} - READY STOCK",
             description="Payment: QRIS / DANA / BCA\n⚠️ Harga item Robux dapat berubah mengikuti rate pasar saat ini.",
             color=0x00BFFF,
         )
@@ -155,7 +156,7 @@ class StoreCog(commands.Cog):
 
         await interaction.response.send_message(embed=embed, view=view)
 
-    @app_commands.command(name="help", description="Bantuan menggunakan bot CELLYN STORE")
+    @app_commands.command(name="help", description=f"Bantuan menggunakan bot {STORE_NAME}")
     async def help_command(self, interaction: discord.Interaction):
         pages = [
             {
@@ -205,6 +206,7 @@ class StoreCog(commands.Cog):
                     "`/stats` — Statistik penjualan\n"
                     "`/statdetail` — Detail statistik\n"
                     "`/allhistory` — Semua transaksi user\n"
+                    "`/transcript` — Cari transcript tiket\n"
                     "`/export` — Export data CSV\n"
                     "`/broadcast` — Kirim pesan ke semua\n"
                     "`/blacklist` — Blokir user\n"
@@ -212,6 +214,7 @@ class StoreCog(commands.Cog):
                     "`/backup` — Backup manual DB\n"
                     "`/listbackup` — Daftar backup\n"
                     "`/restore` — Restore backup\n"
+                    "`/migrate` — Export/import data migrasi\n"
                     "`/resetdb` — Reset database\n"
                     "`/cleanupstats` — Hapus data statistik\n"
                     "`/fakeinvoice` — Generate invoice test\n"
@@ -243,7 +246,7 @@ class StoreCog(commands.Cog):
                 color=0x00BFFF,
             )
             embed.set_thumbnail(url=STORE_THUMBNAIL)
-            embed.set_footer(text=f"CELLYN STORE • Halaman {page_index + 1}/{len(pages)}", icon_url=STORE_THUMBNAIL)
+            embed.set_footer(text=f"{STORE_NAME} • Halaman {page_index + 1}/{len(pages)}", icon_url=STORE_THUMBNAIL)
             return embed
 
         class HelpView(discord.ui.View):
@@ -366,7 +369,7 @@ class StoreCog(commands.Cog):
         categories = {}
         for p in self.bot.PRODUCTS:
             categories.setdefault(p["category"], []).append(p)
-        embed = discord.Embed(title="📋 DAFTAR ITEM CELLYN STORE", color=0x00BFFF, timestamp=datetime.now())
+        embed = discord.Embed(title=f"📋 DAFTAR ITEM {STORE_NAME}", color=0x00BFFF, timestamp=datetime.now())
         for cat, items in categories.items():
             value = "".join(f"ID:{item['id']} - {item['name']} - Rp {item['price']:,}\n" for item in items)
             embed.add_field(name=cat, value=value[:1024], inline=False)

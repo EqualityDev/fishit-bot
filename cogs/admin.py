@@ -7,6 +7,8 @@ import time
 import shutil
 import asyncio
 import logging
+import zipfile
+import tempfile
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -462,6 +464,121 @@ class AdminCog(commands.Cog):
             files=files_to_send,
             ephemeral=True,
         )
+
+
+    @app_commands.command(name="migrate", description="[ADMIN] Export atau import data migrasi")
+    @app_commands.describe(file="Upload file migration_package.zip untuk import (kosongkan untuk export)")
+    async def migrate(self, interaction: discord.Interaction, file: discord.Attachment = None):
+        if not is_staff(interaction):
+            await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+            return
+
+        # ── EXPORT ──────────────────────────────────────────────
+        if file is None:
+            await interaction.response.defer(ephemeral=True)
+            try:
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    zip_path = os.path.join(tmpdir, "migration_package.zip")
+                    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+                        if os.path.exists(DB_NAME):
+                            zf.write(DB_NAME, "store.db")
+                        if os.path.exists("products.json"):
+                            zf.write("products.json", "products.json")
+
+                    embed = discord.Embed(
+                        title="📦 MIGRATION PACKAGE",
+                        description="File migrasi berhasil dibuat!\n\nCara import di server baru:\n`/migrate` → upload file `migration_package.zip`",
+                        color=0x00BFFF,
+                        timestamp=datetime.now()
+                    )
+                    embed.set_footer(text=f"{STORE_NAME} • Migration Export")
+
+                    await interaction.followup.send(
+                        embed=embed,
+                        file=discord.File(zip_path, filename="migration_package.zip"),
+                        ephemeral=True
+                    )
+
+                    # Kirim ke DM admin
+                    try:
+                        with open(zip_path, "rb") as f:
+                            await interaction.user.send(
+                                content="📦 **Migration Package**\nFile migrasi bot lo. Simpan baik-baik!",
+                                file=discord.File(f, filename="migration_package.zip")
+                            )
+                    except Exception:
+                        pass
+
+                    # Kirim juga ke #backup-db
+                    backup_channel = discord.utils.get(interaction.guild.channels, name="backup-db")
+                    if backup_channel:
+                        with open(zip_path, "rb") as f:
+                            await backup_channel.send(
+                                content=f"📦 **MIGRATION EXPORT**\n👤 Oleh: {interaction.user.mention}\n📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}",
+                                file=discord.File(f, filename="migration_package.zip")
+                            )
+            except Exception as e:
+                await interaction.followup.send(f"❌ Gagal export: {e}", ephemeral=True)
+
+        # ── IMPORT ──────────────────────────────────────────────
+        else:
+            if not file.filename.endswith(".zip"):
+                await interaction.response.send_message("❌ File harus berformat `.zip`!", ephemeral=True)
+                return
+
+            await interaction.response.defer(ephemeral=True)
+            try:
+                zip_bytes = await file.read()
+
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    zip_path = os.path.join(tmpdir, "migration_package.zip")
+                    with open(zip_path, "wb") as f:
+                        f.write(zip_bytes)
+
+                    with zipfile.ZipFile(zip_path, "r") as zf:
+                        names = zf.namelist()
+                        if "store.db" not in names:
+                            await interaction.followup.send("❌ File zip tidak valid, `store.db` tidak ditemukan!", ephemeral=True)
+                            return
+
+                        # Backup DB lama dulu
+                        if os.path.exists(DB_NAME):
+                            shutil.copy2(DB_NAME, DB_NAME + ".pre_migrate")
+
+                        # Extract
+                        if "store.db" in names:
+                            with zf.open("store.db") as src, open(DB_NAME, "wb") as dst:
+                                dst.write(src.read())
+                        if "products.json" in names:
+                            with zf.open("products.json") as src, open("products.json", "wb") as dst:
+                                dst.write(src.read())
+
+                # Reload data
+                await self.bot.db.init()
+                products = await self.bot.db.get_all_products()
+                self.bot.PRODUCTS = products
+                self.bot.products_cache.invalidate()
+
+                embed = discord.Embed(
+                    title="✅ MIGRASI BERHASIL",
+                    description=f"Data berhasil diimport!\n\n**{len(products)} produk** berhasil dimuat.",
+                    color=0x00FF88,
+                    timestamp=datetime.now()
+                )
+                embed.add_field(name="⚠️ Catatan", value="Restart bot untuk memastikan semua data termuat dengan sempurna.", inline=False)
+                embed.set_footer(text=f"{STORE_NAME} • Migration Import")
+
+                await interaction.followup.send(embed=embed, ephemeral=True)
+
+                # Log ke #backup-db
+                backup_channel = discord.utils.get(interaction.guild.channels, name="backup-db")
+                if backup_channel:
+                    await backup_channel.send(
+                        f"📥 **MIGRATION IMPORT**\n👤 Oleh: {interaction.user.mention}\n📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}\n✅ {len(products)} produk dimuat"
+                    )
+
+            except Exception as e:
+                await interaction.followup.send(f"❌ Gagal import: {e}", ephemeral=True)
 
 
 async def setup(bot: commands.Bot):
