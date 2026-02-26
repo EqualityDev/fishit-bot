@@ -8,9 +8,12 @@ STAFF_ROLE_NAME = os.getenv("STAFF_ROLE_NAME", "Admin Store")
 BUYER_ROLE_NAME = os.getenv("BUYER_ROLE_NAME", "Royal Customer")
 DANA_NUMBER = os.getenv("DANA_NUMBER", "")
 BCA_NUMBER = os.getenv("BCA_NUMBER", "")
+STORE_NAME = os.getenv("STORE_NAME", "CELLYN STORE")
 LOG_CHANNEL_ID = os.getenv("LOG_CHANNEL_ID")
 
-DB_NAME = "store.db"
+DB_DIR = os.getenv("DB_DIR", "data")
+os.makedirs(DB_DIR, exist_ok=True)
+DB_NAME = os.path.join(DB_DIR, "store.db")
 PRODUCTS_FILE = "products.json"
 INVOICE_COUNTER_FILE = "invoice_counter.txt"
 BROADCAST_COOLDOWN_FILE = "broadcast_cooldown.json"

@@ -11,7 +11,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from datetime import datetime, timedelta
-from config import STAFF_ROLE_NAME, BACKUP_DIR, DB_NAME, BROADCAST_BANNER, STORE_THUMBNAIL
+from config import STAFF_ROLE_NAME, BACKUP_DIR, DB_NAME, BROADCAST_BANNER, STORE_THUMBNAIL, STORE_NAME
 from utils import (
     get_log_channel,
     cleanup_old_backups,
@@ -363,14 +363,14 @@ class AdminCog(commands.Cog):
             return
 
         embed = discord.Embed(
-            title="📢 **✨ PENGUMUMAN CELLYN STORE ✨**",
+            title=f"📢 **✨ PENGUMUMAN {STORE_NAME} ✨**",
             description=pesan,
             color=0x00BFFF,
             timestamp=datetime.now(),
         )
         embed.set_thumbnail(url=STORE_THUMBNAIL)
         embed.set_image(url=BROADCAST_BANNER)
-        embed.set_footer(text="CELLYN STORE • PREMIUM DIGITAL", icon_url=STORE_THUMBNAIL)
+        embed.set_footer(text=f"{STORE_NAME} • PREMIUM DIGITAL", icon_url=STORE_THUMBNAIL)
 
         view = discord.ui.View(timeout=60)
         kirim_btn = discord.ui.Button(label="Kirim", style=discord.ButtonStyle.success)
@@ -403,7 +403,7 @@ class AdminCog(commands.Cog):
                 log_embed.add_field(name="Terkirim", value=str(success), inline=True)
                 log_embed.add_field(name="Gagal", value=str(failed), inline=True)
                 log_embed.add_field(name="Pesan", value=pesan[:500], inline=False)
-                log_embed.set_footer(text="CELLYN STORE • Broadcast Log")
+                log_embed.set_footer(text=f"{STORE_NAME} • Broadcast Log")
                 await backup_channel.send(embed=log_embed)
 
         async def batal_callback(btn: discord.Interaction):
@@ -430,6 +430,38 @@ class AdminCog(commands.Cog):
             await interaction.response.send_message("❌ Admin only!", ephemeral=True)
             return
         await interaction.response.send_modal(CleanupConfirmModal())
+
+
+    @app_commands.command(name="transcript", description="[ADMIN] Cari transcript tiket berdasarkan user")
+    @app_commands.describe(user="User yang mau dicari transcriptnya")
+    async def transcript(self, interaction: discord.Interaction, user: discord.Member):
+        if not is_staff(interaction):
+            await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        import os
+        transcript_dir = BACKUP_DIR.replace("backups", "transcripts")
+        if not os.path.exists(transcript_dir):
+            await interaction.followup.send("❌ Folder transcripts tidak ditemukan!", ephemeral=True)
+            return
+
+        files = os.listdir(transcript_dir)
+        matched = [f for f in sorted(files, reverse=True) if user.name.lower() in f.lower()]
+
+        if not matched:
+            await interaction.followup.send(f"❌ Tidak ada transcript untuk **{user.name}**!", ephemeral=True)
+            return
+
+        matched = matched[:5]
+        files_to_send = [discord.File(os.path.join(transcript_dir, f)) for f in matched]
+
+        await interaction.followup.send(
+            content=f"📁 **{len(matched)} Transcript untuk {user.mention}:**",
+            files=files_to_send,
+            ephemeral=True,
+        )
 
 
 async def setup(bot: commands.Bot):
