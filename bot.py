@@ -6,7 +6,7 @@ import discord
 from discord.ext import commands
 from datetime import datetime, timedelta
 
-from config import TOKEN, STAFF_ROLE_NAME, BACKUP_DIR, DB_NAME
+from config import TOKEN, STAFF_ROLE_NAME, BACKUP_DIR, DB_NAME, STORE_NAME
 from database import SimpleDB, ProductsCache
 from utils import load_products_json, get_log_channel, cleanup_old_backups
 from cogs.react import AutoReact
