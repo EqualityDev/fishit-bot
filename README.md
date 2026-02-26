@@ -69,6 +69,7 @@ cellyn-store-bot/
 ├── .env                # Secret config (not committed)
 ├── .env.example        # Environment variable template
 ├── setup.sh            # One-time install script
+├── start.sh            # Startup script with auto update checker
 ├── import_products.py  # CLI product importer (Excel/CSV)
 └── cogs/
     ├── react.py        # Auto-react system
@@ -99,7 +100,7 @@ bash setup.sh
 nano .env
 
 # 5. Jalankan bot
-python3 bot.py
+bash start.sh
 ```
 
 ### Jalankan di Background (Termux)
@@ -109,7 +110,7 @@ Supaya bot tetap jalan meski Termux ditutup:
 ```bash
 pkg install screen
 screen -S cellyn
-python3 bot.py
+bash start.sh
 ```
 
 Tekan `Ctrl+A` lalu `D` untuk detach. Untuk kembali ke sesi:
@@ -119,10 +120,13 @@ screen -r cellyn
 
 ### Update Bot (setelah ada commit baru)
 
+`bash start.sh` otomatis cek update setiap kali dijalankan. Kalau ada update baru, akan muncul notifikasi dan pilihan untuk update sekarang atau skip.
+
+Atau manual:
 ```bash
 cd ~/fishit-bot
 git pull
-python3 bot.py
+bash start.sh
 ```
 
 ### `.env` Configuration
@@ -197,6 +201,7 @@ python3 import_products.py products.csv
 | `/stats` | Sales statistics |
 | `/statdetail` | Detailed statistics |
 | `/allhistory` | All transactions for a user |
+| `/transcript` | Cari transcript tiket berdasarkan user |
 | `/export` | Export data as CSV |
 | `/broadcast` | Send message to all members |
 | `/blacklist` | Blacklist a user |
