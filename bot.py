@@ -66,6 +66,37 @@ logging.getLogger().addHandler(bot._error_handler)
 
 # ─── Background Tasks ─────────────────────────────────────────────────────────
 
+async def rotating_status():
+    await bot.wait_until_ready()
+    while True:
+        try:
+            all_trans = await bot.db.get_all_transactions()
+            total_trx = len(all_trans)
+            total_products = len(bot.PRODUCTS)
+            total_members = sum(
+                sum(1 for m in g.members if not m.bot)
+                for g in bot.guilds
+            )
+
+            statuses = [
+                (discord.ActivityType.playing, f"{STORE_NAME}"),
+                (discord.ActivityType.watching, f"{total_members} members"),
+                (discord.ActivityType.playing, f"{total_products} produk tersedia"),
+                (discord.ActivityType.watching, f"{total_trx} transaksi selesai"),
+                (discord.ActivityType.listening, "QRIS • DANA • BCA"),
+            ]
+
+            for activity_type, text in statuses:
+                await bot.change_presence(
+                    status=discord.Status.online,
+                    activity=discord.Activity(type=activity_type, name=text)
+                )
+                await asyncio.sleep(300)
+        except Exception as e:
+            logger.error(f"Rotating status error: {e}")
+            await asyncio.sleep(300)
+
+
 async def auto_backup():
     while True:
         try:
@@ -232,6 +263,7 @@ async def on_ready():
     bot.loop.create_task(auto_daily_summary())
     bot.loop.create_task(update_all_member_counts())
     bot.loop.create_task(bot._error_handler.flush_to_discord())
+    bot.loop.create_task(rotating_status())
     logger.info("✓ Background tasks started")
 
 
