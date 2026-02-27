@@ -348,8 +348,9 @@ class AdminCog(commands.Cog):
     @app_commands.command(name="broadcast", description="[ADMIN] Kirim pesan ke semua member")
     @app_commands.describe(pesan="Pesan yang akan dikirim")
     async def broadcast(self, interaction: discord.Interaction, pesan: str):
+        await interaction.response.defer(ephemeral=True)
         if not is_staff(interaction):
-            await interaction.response.send_message("❌ Hanya admin yang bisa broadcast!", ephemeral=True)
+            await interaction.followup.send("❌ Hanya admin yang bisa broadcast!", ephemeral=True)
             return
         user_id = str(interaction.user.id)
         last_used = self.broadcast_cooldown.get(user_id, 0)
@@ -358,14 +359,14 @@ class AdminCog(commands.Cog):
             remaining = 86400 - (current_time - last_used)
             jam = int(remaining // 3600)
             menit = int((remaining % 3600) // 60)
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"⏱️ Broadcast cuma bisa sekali per hari!\n🕐 Sisa: **{jam} jam {menit} menit**",
-                ephemeral=True, delete_after=10,
+                ephemeral=True,
             )
             return
 
         embed = discord.Embed(
-            title=f"📢 **✨ PENGUMUMAN {STORE_NAME} ✨**",
+            title=f"📢 For Your Information",
             description=pesan,
             color=0x00BFFF,
             timestamp=datetime.now(),
@@ -419,7 +420,7 @@ class AdminCog(commands.Cog):
         view.add_item(kirim_btn)
         view.add_item(batal_btn)
 
-        await interaction.response.send_message(
+        await interaction.followup.send(
             content="**Preview broadcast — cek dulu sebelum kirim:**",
             embed=embed, view=view, ephemeral=True,
         )
