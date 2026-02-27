@@ -1,8 +1,14 @@
 #!/bin/bash
 
-# ==============================
-#   EQUALITY BOT - WATCHDOG
-# ==============================
+# Color codes
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+GREEN='\033[0;32m'
+PURPLE='\033[0;35m'
+WHITE='\033[1;37m'
+GRAY='\033[0;37m'
+NC='\033[0m'
 
 BOT_SCRIPT="bot.py"
 BOT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -15,15 +21,44 @@ if [ -f "$BOT_DIR/.env" ]; then
     export $(grep -v '^#' "$BOT_DIR/.env" | xargs)
 fi
 
+STORE_NAME_ENV=$(grep -E "^STORE_NAME=" "$BOT_DIR/.env" 2>/dev/null | cut -d '=' -f2- | tr -d '"' | tr -d "'")
+if [ -z "$STORE_NAME_ENV" ]; then
+    STORE_NAME_ENV="Store"
+fi
+
 WEBHOOK_URL="$WATCHDOG_WEBHOOK"
 
+clear
+
+echo -e "${CYAN}"
+echo "  ███████╗ ██████╗ ██╗   ██╗ █████╗ ██╗     ██╗████████╗██╗   ██╗"
+echo "  ██╔════╝██╔═══██╗██║   ██║██╔══██╗██║     ██║╚══██╔══╝╚██╗ ██╔╝"
+echo "  █████╗  ██║   ██║██║   ██║███████║██║     ██║   ██║    ╚████╔╝ "
+echo "  ██╔══╝  ██║▄▄ ██║██║   ██║██╔══██║██║     ██║   ██║     ╚██╔╝  "
+echo "  ███████╗╚██████╔╝╚██████╔╝██║  ██║███████╗██║   ██║      ██║   "
+echo "  ╚══════╝ ╚══▀▀═╝  ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝   ╚═╝      ╚═╝  "
+echo -e "${NC}"
+echo -e "${PURPLE}  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${WHITE}      Watchdog Monitor  │  ${CYAN}${STORE_NAME_ENV}${WHITE}  │  Built by Equality${NC}"
+echo -e "${PURPLE}  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+
 if [ -z "$WEBHOOK_URL" ]; then
-    echo "[WATCHDOG] ERROR: WATCHDOG_WEBHOOK tidak ditemukan di .env!"
+    echo -e "${RED}  ✗ ERROR: WATCHDOG_WEBHOOK tidak ditemukan di .env!${NC}"
     exit 1
 fi
 
 log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+    local level="$1"
+    local msg="$2"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    case "$level" in
+        INFO)    echo -e "${CYAN}  [${timestamp}] ℹ  ${msg}${NC}" | tee -a "$LOG_FILE" ;;
+        OK)      echo -e "${GREEN}  [${timestamp}] ✓  ${msg}${NC}" | tee -a "$LOG_FILE" ;;
+        WARN)    echo -e "${YELLOW}  [${timestamp}] ⚠  ${msg}${NC}" | tee -a "$LOG_FILE" ;;
+        ERROR)   echo -e "${RED}  [${timestamp}] ✗  ${msg}${NC}" | tee -a "$LOG_FILE" ;;
+        *)       echo -e "${GRAY}  [${timestamp}] •  ${msg}${NC}" | tee -a "$LOG_FILE" ;;
+    esac
 }
 
 send_embed() {
@@ -31,7 +66,6 @@ send_embed() {
     local description="$2"
     local color="$3"
     local extra_fields="$4"
-
     local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
     curl -s -X POST "$WEBHOOK_URL" \
@@ -67,7 +101,11 @@ start_bot() {
     echo $!
 }
 
-log "Watchdog dimulai. Monitoring setiap ${CHECK_INTERVAL}s..."
+echo -e "${PURPLE}  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+log INFO "Watchdog dimulai — interval: ${CHECK_INTERVAL}s, max retry: ${MAX_RETRIES}x"
+echo -e "${PURPLE}  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+
 send_embed \
     "🟢 WATCHDOG AKTIF" \
     "Watchdog mulai memantau bot." \
@@ -85,14 +123,14 @@ while true; do
 
     if [ -n "$BOT_PID" ]; then
         retries=0
-        log "Bot hidup (PID: $BOT_PID)"
+        log OK "Bot hidup (PID: $BOT_PID)"
     else
         DOWN_TIME=$(date '+%H:%M:%S')
         UPTIME=$(( $(date +%s) - BOT_START_TIME ))
         H=$((UPTIME/3600)); M=$(((UPTIME%3600)/60)); S=$((UPTIME%60))
         UPTIME_STR="${H} jam ${M} menit ${S} detik"
 
-        log "Bot MATI! Uptime terakhir: $UPTIME_STR"
+        log ERROR "Bot MATI! Uptime terakhir: $UPTIME_STR"
 
         send_embed \
             "🔴 BOT MATI" \
@@ -103,13 +141,13 @@ while true; do
         retries=$((retries + 1))
 
         if [ $retries -le $MAX_RETRIES ]; then
-            log "Restart percobaan $retries/$MAX_RETRIES..."
+            log WARN "Restart percobaan $retries/$MAX_RETRIES..."
             BOT_PID=$(start_bot)
             BOT_START_TIME=$(date +%s)
             sleep 5
 
             if kill -0 "$BOT_PID" 2>/dev/null; then
-                log "Bot berhasil direstart (PID: $BOT_PID)"
+                log OK "Bot berhasil direstart (PID: $BOT_PID)"
                 send_embed \
                     "✅ BOT BERHASIL DIRESTART" \
                     "Bot kembali online!" \
@@ -117,10 +155,10 @@ while true; do
                     "[{\"name\": \"PID Baru\", \"value\": \"$BOT_PID\", \"inline\": true}, {\"name\": \"Percobaan\", \"value\": \"$retries/${MAX_RETRIES}\", \"inline\": true}]"
                 retries=0
             else
-                log "Restart gagal!"
+                log ERROR "Restart gagal!"
             fi
         else
-            log "Max retry tercapai! Butuh intervensi manual."
+            log ERROR "Max retry tercapai! Butuh intervensi manual."
             send_embed \
                 "❌ RESTART GAGAL" \
                 "Bot sudah dicoba restart ${MAX_RETRIES}x tapi tetap mati.\n**Butuh intervensi manual!**" \
