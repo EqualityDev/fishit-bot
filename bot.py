@@ -1,4 +1,14 @@
 import os
+
+# Terminal colors
+CYAN  = "\033[0;36m"
+GREEN = "\033[0;32m"
+YELLOW= "\033[1;33m"
+PURPLE= "\033[0;35m"
+GRAY  = "\033[0;37m"
+WHITE = "\033[1;37m"
+RED   = "\033[0;31m"
+NC    = "\033[0m"
 import shutil
 import asyncio
 import logging
@@ -11,10 +21,24 @@ from database import SimpleDB, ProductsCache
 from utils import load_products_json, get_log_channel, cleanup_old_backups
 from cogs.react import AutoReact
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+class ColorFormatter(logging.Formatter):
+    COLORS = {
+        logging.DEBUG:    "\033[0;37m",
+        logging.INFO:     "\033[0;36m",
+        logging.WARNING:  "\033[1;33m",
+        logging.ERROR:    "\033[0;31m",
+        logging.CRITICAL: "\033[1;31m",
+    }
+    NC = "\033[0m"
+    def format(self, record):
+        color = self.COLORS.get(record.levelno, self.NC)
+        record.levelname = f"{color}{record.levelname}{self.NC}"
+        record.msg = f"{color}{record.msg}{self.NC}"
+        return super().format(record)
+
+handler = logging.StreamHandler()
+handler.setFormatter(ColorFormatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+logging.basicConfig(level=logging.INFO, handlers=[handler])
 logger = logging.getLogger(__name__)
 
 
@@ -225,10 +249,10 @@ async def on_ready():
     if not db_products:
         bot.PRODUCTS = load_products_json()
         await bot.db.save_products(bot.PRODUCTS)
-        print("✓ Instalasi pertama: produk diimport dari products.json")
+        print(f"{GREEN}  ✓ Database: produk diimport dari products.json{NC}")
     else:
         bot.PRODUCTS = db_products
-        print(f"✓ Load {len(bot.PRODUCTS)} products from database")
+        print(f"{GREEN}  ✓ Database: {len(bot.PRODUCTS)} produk dimuat{NC}")
 
     await bot.products_cache.load_from_db()
 
@@ -298,8 +322,8 @@ async def main():
 
 if __name__ == "__main__":
     if not TOKEN:
-        print("ERROR: DISCORD_TOKEN not found in .env")
+        print(f"{RED}  ✗ ERROR: DISCORD_TOKEN tidak ditemukan di .env{NC}")
         exit(1)
-    print(f"Starting {STORE_NAME} Bot...")
-    print("Under develop Equality")
+    print(f"{CYAN}  ▶ Starting {STORE_NAME} Bot...{NC}")
+    print(f"{GRAY}  ✎ Under develop by Equality{NC}")
     asyncio.run(main())
