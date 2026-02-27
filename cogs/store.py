@@ -110,6 +110,7 @@ class StoreCog(commands.Cog):
 
     @app_commands.command(name="catalog", description="Lihat semua item")
     async def catalog(self, interaction: discord.Interaction):
+        await interaction.response.defer()
         products = await self.bot.products_cache.get_products()
 
         spotlight_items = [p for p in products if p.get("spotlight")]
@@ -154,7 +155,7 @@ class StoreCog(commands.Cog):
                     custom_id=f"buy_{cat}",
                 ))
 
-        await interaction.response.send_message(embed=embed, view=view)
+        await interaction.followup.send(embed=embed, view=view)
 
     @app_commands.command(name="help", description=f"Bantuan menggunakan bot {STORE_NAME}")
     async def help_command(self, interaction: discord.Interaction):
@@ -359,21 +360,6 @@ class StoreCog(commands.Cog):
             color=0x00BFFF,
         )
         await interaction.response.send_message(embed=embed)
-
-    @app_commands.command(name="listitems", description="[ADMIN] Lihat semua item (dikirim ke DM)")
-    async def list_items_admin(self, interaction: discord.Interaction):
-        if not is_staff(interaction):
-            await interaction.response.send_message("❌ Admin only!", ephemeral=True)
-            return
-        await interaction.response.send_message("📋 Mengirim daftar item ke DM...", ephemeral=True)
-        categories = {}
-        for p in self.bot.PRODUCTS:
-            categories.setdefault(p["category"], []).append(p)
-        embed = discord.Embed(title=f"📋 DAFTAR ITEM {STORE_NAME}", color=0x00BFFF, timestamp=datetime.now())
-        for cat, items in categories.items():
-            value = "".join(f"ID:{item['id']} - {item['name']} - Rp {item['price']:,}\n" for item in items)
-            embed.add_field(name=cat, value=value[:1024], inline=False)
-        await interaction.user.send(embed=embed)
 
     @app_commands.command(name="spotlight", description="[ADMIN] Buat dan kirim embed spotlight")
     async def spotlight(self, interaction: discord.Interaction):
@@ -586,15 +572,16 @@ class StoreCog(commands.Cog):
 
     @app_commands.command(name="qris", description="Lihat QR code")
     async def cek_qris(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
         qr_channel = discord.utils.get(interaction.guild.channels, name="qr-code")
         if not qr_channel:
-            await interaction.response.send_message("QR code tidak tersedia!", ephemeral=True)
+            await interaction.followup.send("QR code tidak tersedia!", ephemeral=True)
             return
         async for msg in qr_channel.history(limit=10):
             if msg.author == self.bot.user and msg.embeds:
-                await interaction.response.send_message(embed=msg.embeds[0])
+                await interaction.followup.send(embed=msg.embeds[0])
                 return
-        await interaction.response.send_message("QR code tidak ditemukan!", ephemeral=True)
+        await interaction.followup.send("QR code tidak ditemukan!", ephemeral=True)
 
     # ─── History ─────────────────────────────────────────────────
 
