@@ -14,6 +14,7 @@ from config import (
     LOG_CHANNEL_ID as _LOG_CHANNEL_ID_ENV,
     STORE_THUMBNAIL,
     INVOICE_BANNER,
+    STORE_NAME,
 )
 
 _log_channel_id = None
@@ -85,6 +86,7 @@ async def send_invoice(guild, transaction_data, db):
 
     transaction_data["invoice"] = invoice_num
     transaction_data["timestamp"] = datetime.now()
+    trx_time = datetime.now().strftime("%d %B %Y, %H:%M")
 
     if not transaction_data.get("fake", False):
         try:
@@ -96,66 +98,61 @@ async def send_invoice(guild, transaction_data, db):
             print(f"❌ Error gift role: {e}")
 
     items_list = "".join(
-        f"{item['qty']}x {item['name']} = Rp {item['price'] * item['qty']:,}\n"
+        f"`{item['qty']}x` **{item['name']}**  —  Rp {item['price'] * item['qty']:,}\n"
         for item in transaction_data["items"]
     )
 
+    # ── Log channel embed ──
     embed = discord.Embed(
         title="TRANSAKSI BERHASIL",
         color=0x00BFFF,
         timestamp=datetime.now(),
     )
     embed.set_thumbnail(url=STORE_THUMBNAIL)
-    embed.add_field(name="Invoice", value=f"`{invoice_num}`", inline=False)
+    embed.add_field(name="No. Invoice", value=f"```{invoice_num}```", inline=False)
     embed.add_field(name="Customer", value=f"<@{transaction_data['user_id']}>", inline=True)
-    embed.add_field(name="Total", value=f"Rp {transaction_data['total_price']:,}", inline=True)
     embed.add_field(name="Metode", value=transaction_data.get("payment_method", "-"), inline=True)
+    embed.add_field(name="Tanggal", value=trx_time, inline=True)
     embed.add_field(name="Items", value=items_list, inline=False)
+    embed.add_field(name="Total", value=f"**Rp {transaction_data['total_price']:,}**", inline=True)
 
     if transaction_data.get("admin_id"):
         admin = guild.get_member(int(transaction_data["admin_id"]))
         if admin:
-            embed.add_field(name="Diverifikasi", value=admin.mention, inline=True)
+            embed.add_field(name="Diverifikasi oleh", value=admin.mention, inline=True)
 
     embed.set_image(url=INVOICE_BANNER)
 
     marker = "​" if transaction_data.get("fake", False) else ""
-    embed.set_footer(text=f"CELLYN STORE{marker}")
+    embed.set_footer(text=f"{STORE_NAME}{marker} • {trx_time}")
 
     await channel.send(embed=embed)
 
+    # ── DM embed ──
     if user and not transaction_data.get("fake", False):
         try:
             items_text = "".join(
-                f"{item['qty']}x {item['name']} = Rp {item['price'] * item['qty']:,}\n"
+                f"`{item['qty']}x` **{item['name']}**  —  Rp {item['price'] * item['qty']:,}\n"
                 for item in transaction_data["items"]
             )
             dm_embed = discord.Embed(
-                title="🧾 **INVOICE PEMBAYARAN**",
-                description="Terima kasih telah berbelanja di **CELLYN STORE**!",
+                title="INVOICE PEMBELIAN",
+                description=f"Terima kasih sudah belanja di **{STORE_NAME}**!\nBerikut detail transaksi kamu.",
                 color=0x00BFFF,
                 timestamp=datetime.now(),
             )
             dm_embed.set_thumbnail(url=STORE_THUMBNAIL)
-            dm_embed.add_field(name="📦 **ITEMS**", value=items_text, inline=False)
-            dm_embed.add_field(name="💰 **TOTAL**", value=f"Rp {transaction_data['total_price']:,}", inline=True)
-            dm_embed.add_field(name="💳 **METODE**", value=transaction_data.get("payment_method", "-"), inline=True)
-            dm_embed.add_field(name="📋 **INVOICE**", value=f"`{invoice_num}`", inline=False)
+            dm_embed.add_field(name="No. Invoice", value=f"```{invoice_num}```", inline=False)
+            dm_embed.add_field(name="Tanggal", value=trx_time, inline=True)
+            dm_embed.add_field(name="Metode Bayar", value=transaction_data.get("payment_method", "-"), inline=True)
+            dm_embed.add_field(name="Items", value=items_text, inline=False)
+            dm_embed.add_field(name="Total Pembayaran", value=f"**Rp {transaction_data['total_price']:,}**", inline=False)
             dm_embed.add_field(
-                name="❤️ **DARI KAMI**",
-                value=(
-                    "👑 *Terima kasih telah menjadi bagian dari keluarga besar Cellyn Store!*\n"
-                    "✨ *Anda adalah pelanggan yang sangat berharga bagi kami.*\n"
-                    "🌟 *Tanpa dukungan anda, kami bukan apa-apa.*"
-                ),
+                name="Info",
+                value=f"Simpan nomor invoice kamu sebagai bukti pembelian.\nGunakan `/history` untuk melihat riwayat transaksi.",
                 inline=False,
             )
-            dm_embed.add_field(
-                name="🔍 **CEK TRANSAKSI**",
-                value="Kamu bisa lihat history transaksi dengan command `/history`",
-                inline=False,
-            )
-            dm_embed.set_footer(text="CELLYN STORE • Terima kasih!")
+            dm_embed.set_footer(text=f"{STORE_NAME} • Terima kasih sudah berbelanja!")
             await user.send(embed=dm_embed)
             print(f"✅ Invoice DM terkirim ke {user.name}")
         except discord.Forbidden:
@@ -198,15 +195,15 @@ async def get_log_channel(guild):
         channel = await guild.create_text_channel(
             name="log-transaksi",
             overwrites=overwrites,
-            topic="📋 LOG TRANSAKSI CELLYN STORE",
+            topic=f"📋 LOG TRANSAKSI {STORE_NAME}",
         )
         embed = discord.Embed(
-            title="📋 LOG TRANSAKSI CELLYN STORE",
+            title=f"📋 LOG TRANSAKSI {STORE_NAME}",
             description="Channel ini mencatat semua transaksi yang BERHASIL.",
             color=0x00BFFF,
             timestamp=datetime.now(),
         )
-        embed.set_footer(text="CELLYN STORE")
+        embed.set_footer(text=f"{STORE_NAME}")
         await channel.send(embed=embed)
         _log_channel_id = channel.id
         update_env_file(f"LOG_CHANNEL_ID={channel.id}")
@@ -336,69 +333,410 @@ async def generate_html_transcript(channel, closed_by):
             "is_bot": msg.author.bot,
         })
 
+    now_str = datetime.now().strftime("%d %B %Y — %H:%M:%S")
+    now_short = datetime.now().strftime("%d/%m/%Y %H:%M")
+
     html_content = f"""<!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Transcript - {html.escape(channel.name)}</title>
+    <title>Transcript — {html.escape(channel.name)}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {{
+            --bg-base: #0d0e11;
+            --bg-card: #13151a;
+            --bg-surface: #1a1d24;
+            --bg-hover: #1f2229;
+            --accent: #00bfff;
+            --accent-dim: rgba(0,191,255,0.12);
+            --accent-glow: rgba(0,191,255,0.25);
+            --gold: #f0b232;
+            --blurple: #5865f2;
+            --text-primary: #e8eaf0;
+            --text-secondary: #8b8fa8;
+            --text-muted: #565a6e;
+            --border: rgba(255,255,255,0.06);
+            --border-accent: rgba(0,191,255,0.3);
+            --shadow: 0 8px 32px rgba(0,0,0,0.6);
+            --radius: 12px;
+        }}
+
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        body {{ font-family: 'Whitney', Arial, sans-serif; background: #313338; color: #dcddde; padding: 20px; }}
-        .container {{ max-width: 900px; margin: 0 auto; background: #2b2d31; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,.4); }}
-        .header {{ background: #1e1f22; padding: 20px 25px; border-bottom: 2px solid #111214; }}
-        .header h1 {{ color: #fff; font-size: 22px; margin-bottom: 8px; }}
-        .header p {{ color: #96989d; font-size: 13px; margin: 3px 0; }}
-        .messages {{ padding: 20px 25px; }}
-        .message {{ display: flex; margin: 12px 0; padding-bottom: 12px; border-bottom: 1px solid #3f4147; }}
-        .message:last-child {{ border-bottom: none; }}
-        .avatar {{ width: 40px; height: 40px; border-radius: 50%; margin-right: 12px; flex-shrink: 0; }}
-        .meta {{ display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }}
-        .author {{ font-weight: 600; font-size: 15px; }}
-        .staff .author {{ color: #f0b232; }}
-        .bot .author {{ color: #5865f2; }}
-        .user .author {{ color: #fff; }}
-        .timestamp {{ color: #96989d; font-size: 11px; }}
-        .content {{ color: #dcddde; font-size: 14px; white-space: pre-wrap; word-wrap: break-word; }}
-        .badge {{ background: #5865f2; padding: 1px 6px; border-radius: 10px; font-size: 10px; color: #fff; }}
-        .footer {{ background: #1e1f22; padding: 12px 25px; text-align: center; color: #96989d; font-size: 12px; border-top: 2px solid #111214; }}
+
+        body {{
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-base);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 32px 16px;
+        }}
+
+        /* ── TOP BAR ── */
+        .topbar {{
+            max-width: 860px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 20px;
+            background: var(--bg-card);
+            border-radius: 999px;
+            border: 1px solid var(--border);
+        }}
+        .topbar-brand {{
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }}
+        .topbar-date {{
+            font-size: 11px;
+            color: var(--text-muted);
+        }}
+
+        /* ── CONTAINER ── */
+        .container {{
+            max-width: 860px;
+            margin: 0 auto;
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }}
+
+        /* ── HEADER ── */
+        .header {{
+            background: linear-gradient(135deg, #0a1628 0%, #0d1f3a 50%, #091522 100%);
+            padding: 36px 32px 28px;
+            position: relative;
+            overflow: hidden;
+            border-bottom: 1px solid var(--border-accent);
+        }}
+        .header::before {{
+            content: '';
+            position: absolute;
+            top: -60px; right: -60px;
+            width: 220px; height: 220px;
+            background: radial-gradient(circle, rgba(0,191,255,0.08) 0%, transparent 70%);
+            pointer-events: none;
+        }}
+        .header::after {{
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            opacity: 0.4;
+        }}
+        .header-top {{
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }}
+        .header-title {{
+            font-size: 22px;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: -0.02em;
+        }}
+        .header-title span {{
+            color: var(--accent);
+        }}
+        .header-badge {{
+            background: var(--accent-dim);
+            border: 1px solid var(--border-accent);
+            color: var(--accent);
+            font-size: 10px;
+            font-weight: 600;
+            padding: 4px 12px;
+            border-radius: 999px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }}
+        .header-meta {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+        }}
+        .meta-item {{
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 14px;
+        }}
+        .meta-label {{
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 4px;
+        }}
+        .meta-value {{
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }}
+
+        /* ── MESSAGES ── */
+        .messages {{
+            background: var(--bg-card);
+            padding: 24px 28px;
+        }}
+        .day-divider {{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 20px 0;
+        }}
+        .day-divider::before, .day-divider::after {{
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }}
+        .day-divider span {{
+            font-size: 10px;
+            color: var(--text-muted);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            white-space: nowrap;
+        }}
+        .message {{
+            display: flex;
+            gap: 14px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            transition: background 0.15s;
+            margin-bottom: 2px;
+        }}
+        .message:hover {{
+            background: var(--bg-hover);
+        }}
+        .avatar {{
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            margin-top: 2px;
+            object-fit: cover;
+        }}
+        .avatar-bot {{
+            border: 2px solid var(--blurple);
+        }}
+        .avatar-staff {{
+            border: 2px solid var(--gold);
+        }}
+        .msg-body {{
+            flex: 1;
+            min-width: 0;
+        }}
+        .msg-meta {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 3px;
+        }}
+        .msg-author {{
+            font-size: 14px;
+            font-weight: 600;
+        }}
+        .author-bot {{ color: var(--blurple); }}
+        .author-staff {{ color: var(--gold); }}
+        .author-user {{ color: var(--text-primary); }}
+        .badge {{
+            font-size: 9px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 4px;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }}
+        .badge-bot {{
+            background: var(--blurple);
+            color: #fff;
+        }}
+        .badge-staff {{
+            background: rgba(240,178,50,0.2);
+            color: var(--gold);
+            border: 1px solid rgba(240,178,50,0.3);
+        }}
+        .msg-time {{
+            font-size: 10px;
+            color: var(--text-muted);
+        }}
+        .msg-content {{
+            font-size: 14px;
+            line-height: 1.55;
+            color: var(--text-primary);
+            white-space: pre-wrap;
+            word-break: break-word;
+        }}
+        .msg-embed {{
+            margin-top: 6px;
+            padding: 8px 12px;
+            background: var(--bg-surface);
+            border-left: 3px solid var(--accent);
+            border-radius: 0 6px 6px 0;
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-style: italic;
+        }}
+        .msg-attachment {{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 6px;
+            padding: 6px 12px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 12px;
+            color: var(--accent);
+            text-decoration: none;
+        }}
+        .msg-attachment:hover {{
+            background: var(--accent-dim);
+        }}
+
+        /* ── FOOTER ── */
+        .footer {{
+            background: var(--bg-base);
+            border-top: 1px solid var(--border);
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }}
+        .footer-brand {{
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent);
+            letter-spacing: 0.04em;
+        }}
+        .footer-info {{
+            font-size: 11px;
+            color: var(--text-muted);
+        }}
+        .footer-dot {{
+            width: 4px; height: 4px;
+            background: var(--accent);
+            border-radius: 50%;
+            display: inline-block;
+            margin: 0 8px;
+            vertical-align: middle;
+            opacity: 0.5;
+        }}
+        .msg-count {{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--text-muted);
+            background: var(--bg-surface);
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+        }}
     </style>
 </head>
 <body>
+
+<div class="topbar">
+    <span class="topbar-brand">{html.escape(STORE_NAME)}</span>
+    <span class="topbar-date">{now_str}</span>
+</div>
+
 <div class="container">
     <div class="header">
-        <h1>🎫 Ticket Transcript</h1>
-        <p>📌 Channel: #{html.escape(channel.name)}</p>
-        <p>🔒 Ditutup oleh: {html.escape(closed_by.display_name)} (@{html.escape(closed_by.name)})</p>
-        <p>📅 {datetime.now().strftime('%d %B %Y %H:%M:%S')} &nbsp;|&nbsp; 💬 {len(messages)} pesan</p>
+        <div class="header-top">
+            <div>
+                <div class="header-title">Ticket <span>Transcript</span></div>
+            </div>
+            <span class="header-badge">Closed</span>
+        </div>
+        <div class="header-meta">
+            <div class="meta-item">
+                <div class="meta-label">Channel</div>
+                <div class="meta-value">#{html.escape(channel.name)}</div>
+            </div>
+            <div class="meta-item">
+                <div class="meta-label">Ditutup oleh</div>
+                <div class="meta-value">{html.escape(closed_by.display_name)}</div>
+            </div>
+            <div class="meta-item">
+                <div class="meta-label">Tanggal</div>
+                <div class="meta-value">{now_str}</div>
+            </div>
+            <div class="meta-item">
+                <div class="meta-label">Total Pesan</div>
+                <div class="meta-value">{len(messages)} pesan</div>
+            </div>
+        </div>
     </div>
-    <div class="messages">"""
+
+    <div class="messages">
+        <div class="day-divider"><span>Awal percakapan</span></div>"""
 
     for msg in messages:
-        badge = ""
         if msg["is_bot"]:
-            badge = '<span class="badge">BOT</span>'
+            badge = '<span class="badge badge-bot">BOT</span>'
+            author_class = "author-bot"
+            avatar_class = "avatar-bot"
         elif msg["role"] == "staff":
-            badge = '<span class="badge">STAFF</span>'
+            badge = '<span class="badge badge-staff">STAFF</span>'
+            author_class = "author-staff"
+            avatar_class = "avatar-staff"
+        else:
+            badge = ""
+            author_class = "author-user"
+            avatar_class = ""
+
+        attachments_html = ""
+        if msg["attachments"]:
+            raw = msg["attachments"].replace("<br>📎 ", "")
+            attachments_html = f'<div><a class="msg-attachment" href="#" target="_blank">📎 Lampiran</a></div>'
+
+        embeds_html = ""
+        if msg["embeds"]:
+            embeds_html = '<div class="msg-embed">📦 Embed (tidak ditampilkan di transcript)</div>'
+
+        content_html = f'<div class="msg-content">{msg["content"]}</div>' if msg["content"] else ""
 
         html_content += f"""
-        <div class="message {msg['role']}">
-            <img class="avatar" src="{msg['avatar']}" alt="Avatar" loading="lazy">
-            <div>
-                <div class="meta">
-                    <span class="author">{msg['author']}</span>
+        <div class="message">
+            <img class="avatar {avatar_class}" src="{msg['avatar']}" alt="" loading="lazy" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+            <div class="msg-body">
+                <div class="msg-meta">
+                    <span class="msg-author {author_class}">{msg['author']}</span>
                     {badge}
-                    <span class="timestamp">{msg['timestamp']}</span>
+                    <span class="msg-time">{msg['timestamp']}</span>
                 </div>
-                <div class="content">{msg['content']}</div>
-                {msg['attachments']}{msg['embeds']}
+                {content_html}
+                {attachments_html}
+                {embeds_html}
             </div>
         </div>"""
 
     html_content += f"""
+        <div class="day-divider"><span>Akhir percakapan</span></div>
     </div>
-    <div class="footer">CELLYN STORE • {datetime.now().strftime('%d/%m/%Y %H:%M')}</div>
+
+    <div class="footer">
+        <span class="footer-brand">{html.escape(STORE_NAME)}</span>
+        <span class="footer-info">
+            <span class="msg-count">💬 {len(messages)} pesan</span>
+            <span class="footer-dot"></span>
+            {now_short}
+        </span>
+    </div>
 </div>
+
 </body>
 </html>"""
 

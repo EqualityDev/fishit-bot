@@ -4,7 +4,7 @@ import aiosqlite
 import discord
 from discord.ext import commands
 from datetime import datetime
-from config import STAFF_ROLE_NAME, DANA_NUMBER, BCA_NUMBER, BACKUP_DIR, STORE_THUMBNAIL
+from config import STAFF_ROLE_NAME, DANA_NUMBER, BCA_NUMBER, BACKUP_DIR, STORE_THUMBNAIL, STORE_NAME
 from utils import (
     format_items,
     calculate_total,
@@ -41,19 +41,31 @@ class TicketCog(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self._processed_interactions = set()
 
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
         if interaction.type != discord.InteractionType.component:
             return
 
+        # Cegah interaction diproses dua kali (race condition)
+        iid = interaction.id
+        if iid in self._processed_interactions:
+            return
+        self._processed_interactions.add(iid)
+        if len(self._processed_interactions) > 200:
+            self._processed_interactions = set(list(self._processed_interactions)[-100:])
+
         custom_id = interaction.data.get("custom_id", "")
         user_id = str(interaction.user.id)
 
         if user_id in self.bot.blacklist:
-            await interaction.response.send_message(
-                "Kamu diblacklist dari CELLYN STORE.", ephemeral=True
-            )
+            try:
+                await interaction.response.send_message(
+                    f"Kamu diblacklist dari {STORE_NAME}.", ephemeral=True
+                )
+            except Exception:
+                pass
             return
 
         # ─── Catalog Browse ──────────────────────────────────────
@@ -168,7 +180,7 @@ class TicketCog(commands.Cog):
                 inline=False,
             )
             embed.set_thumbnail(url=STORE_THUMBNAIL)
-            embed.set_footer(text="CELLYN STORE • Ketik !cancel untuk batalkan", icon_url=STORE_THUMBNAIL)
+            embed.set_footer(text=f"{STORE_NAME} • Ketik !cancel untuk batalkan", icon_url=STORE_THUMBNAIL)
 
             qty_view = discord.ui.View()
             qty_view.add_item(discord.ui.Button(
@@ -194,12 +206,17 @@ class TicketCog(commands.Cog):
         # ─── Ticket Qty Buttons ───────────────────────────────────
 
         elif custom_id.startswith("ticket_add_") or custom_id.startswith("ticket_remove_"):
+            try:
+                await interaction.response.defer()
+            except Exception:
+                return
+
             is_add = custom_id.startswith("ticket_add_")
             item_id = int(custom_id.split("_")[-1])
             channel_id = str(interaction.channel.id)
 
             if channel_id not in self.bot.active_tickets:
-                await interaction.response.send_message("❌ Tiket tidak ditemukan!", ephemeral=True)
+                await interaction.followup.send("❌ Tiket tidak ditemukan!", ephemeral=True)
                 return
 
             ticket = self.bot.active_tickets[channel_id]
@@ -207,12 +224,12 @@ class TicketCog(commands.Cog):
             if user_id != ticket["user_id"]:
                 staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
                 if staff_role not in interaction.user.roles:
-                    await interaction.response.send_message("❌ Bukan tiket kamu!", ephemeral=True)
+                    await interaction.followup.send("❌ Bukan tiket kamu!", ephemeral=True)
                     return
 
             item_entry = next((i for i in ticket["items"] if i["id"] == item_id), None)
             if not item_entry:
-                await interaction.response.send_message("❌ Item tidak ada di tiket!", ephemeral=True)
+                await interaction.followup.send("❌ Item tidak ada di tiket!", ephemeral=True)
                 return
 
             if is_add:
@@ -231,34 +248,38 @@ class TicketCog(commands.Cog):
             await self.bot.db.update_ticket_total(channel_id, ticket["total_price"])
 
             if not ticket["items"]:
-                await interaction.response.send_message("🔄 Tiket kosong, menutup dalam 5 detik...")
+                await interaction.followup.send("🔄 Tiket kosong, menutup dalam 5 detik...")
                 await asyncio.sleep(5)
                 del self.bot.active_tickets[channel_id]
                 await self.bot.db.delete_ticket(channel_id)
                 await interaction.channel.delete()
                 return
 
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"{msg}\n🛒 **Items:**\n{format_items(ticket['items'])}\n💰 **Total: Rp {ticket['total_price']:,}**"
             )
 
         # ─── Confirm Payment ─────────────────────────────────────
 
         elif custom_id == "confirm_payment":
+            try:
+                await interaction.response.defer()
+            except Exception:
+                return
             channel_id = str(interaction.channel.id)
             if channel_id not in self.bot.active_tickets:
-                await interaction.response.send_message("❌ Tiket tidak ditemukan!", ephemeral=True)
+                await interaction.followup.send("❌ Tiket tidak ditemukan!", ephemeral=True)
                 return
 
             ticket = self.bot.active_tickets[channel_id]
             if user_id != ticket["user_id"]:
-                await interaction.response.send_message("❌ Bukan tiket kamu!", ephemeral=True)
+                await interaction.followup.send("❌ Bukan tiket kamu!", ephemeral=True)
                 return
             if ticket["status"] != "OPEN":
-                await interaction.response.send_message("❌ Tiket sudah diproses.", ephemeral=True)
+                await interaction.followup.send("❌ Tiket sudah diproses.", ephemeral=True)
                 return
 
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "✅ **Pembayaran kamu sedang diverifikasi oleh admin.**\n"
                 "⏳ Estimasi: 1-5 menit. Mohon tunggu sebentar."
             )
@@ -281,22 +302,24 @@ class TicketCog(commands.Cog):
         # ─── Verify Payment ───────────────────────────────────────
 
         elif custom_id == "verify_payment":
+            try:
+                await interaction.response.defer()
+            except Exception:
+                return
             channel_id = str(interaction.channel.id)
             if channel_id not in self.bot.active_tickets:
-                await interaction.response.send_message("❌ Tiket tidak ditemukan!", ephemeral=True)
+                await interaction.followup.send("❌ Tiket tidak ditemukan!", ephemeral=True)
                 return
 
             staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
             if staff_role not in interaction.user.roles:
-                await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+                await interaction.followup.send("❌ Admin only!", ephemeral=True)
                 return
 
             ticket = self.bot.active_tickets[channel_id]
             if ticket["status"] != "OPEN":
-                await interaction.response.send_message("❌ Tiket sudah diproses.", ephemeral=True)
+                await interaction.followup.send("❌ Tiket sudah diproses.", ephemeral=True)
                 return
-
-            await interaction.response.defer()
 
             invoice_num = await send_invoice(
                 interaction.guild,
@@ -326,7 +349,7 @@ class TicketCog(commands.Cog):
                         overwrites[staff_role] = discord.PermissionOverwrite(read_messages=True)
                     backup_channel = await interaction.guild.create_text_channel(
                         name="backup-db", overwrites=overwrites,
-                        topic="🔒 Backup otomatis database Cellyn Store"
+                        topic=f"🔒 Backup otomatis database {STORE_NAME}"
                     )
                 if backup_channel:
                     await backup_channel.send(
@@ -405,7 +428,7 @@ class TicketCog(commands.Cog):
                     )
                     if qris_url:
                         embed.set_image(url=qris_url)
-                    embed.set_footer(text="CELLYN STORE • Pastikan nominal sesuai")
+                    embed.set_footer(text=f"{STORE_NAME} • Pastikan nominal sesuai")
                     await message.channel.send(embed=embed)
 
                 elif method == "DANA":
@@ -420,7 +443,7 @@ class TicketCog(commands.Cog):
                         ),
                         color=0x00BFFF,
                     )
-                    embed.set_footer(text="CELLYN STORE • Pastikan nominal sesuai")
+                    embed.set_footer(text=f"{STORE_NAME} • Pastikan nominal sesuai")
                     await message.channel.send(embed=embed)
 
                 elif method == "BCA":
@@ -435,7 +458,7 @@ class TicketCog(commands.Cog):
                         ),
                         color=0x00BFFF,
                     )
-                    embed.set_footer(text="CELLYN STORE • Pastikan nominal sesuai")
+                    embed.set_footer(text=f"{STORE_NAME} • Pastikan nominal sesuai")
                     await message.channel.send(embed=embed)
 
                 await message.channel.send(
