@@ -572,7 +572,7 @@ class StoreCog(commands.Cog):
 
     @app_commands.command(name="qris", description="Lihat QR code")
     async def cek_qris(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         qr_channel = discord.utils.get(interaction.guild.channels, name="qr-code")
         if not qr_channel:
             await interaction.followup.send("QR code tidak tersedia!", ephemeral=True)
