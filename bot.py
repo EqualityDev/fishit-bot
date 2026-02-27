@@ -1,14 +1,4 @@
 import os
-
-# Terminal colors
-CYAN  = "\033[0;36m"
-GREEN = "\033[0;32m"
-YELLOW= "\033[1;33m"
-PURPLE= "\033[0;35m"
-GRAY  = "\033[0;37m"
-WHITE = "\033[1;37m"
-RED   = "\033[0;31m"
-NC    = "\033[0m"
 import shutil
 import asyncio
 import logging
@@ -21,6 +11,16 @@ from database import SimpleDB, ProductsCache
 from utils import load_products_json, get_log_channel, cleanup_old_backups
 from cogs.react import AutoReact
 
+# Terminal colors
+CYAN  = "\033[0;36m"
+GREEN = "\033[0;32m"
+YELLOW= "\033[1;33m"
+PURPLE= "\033[0;35m"
+GRAY  = "\033[0;37m"
+WHITE = "\033[1;37m"
+RED   = "\033[0;31m"
+NC    = "\033[0m"
+
 class ColorFormatter(logging.Formatter):
     COLORS = {
         logging.DEBUG:    "\033[0;37m",
@@ -31,6 +31,8 @@ class ColorFormatter(logging.Formatter):
     }
     NC = "\033[0m"
     def format(self, record):
+        import copy
+        record = copy.copy(record)
         color = self.COLORS.get(record.levelno, self.NC)
         record.levelname = f"{color}{record.levelname}{self.NC}"
         record.msg = f"{color}{record.msg}{self.NC}"

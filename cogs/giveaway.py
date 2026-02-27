@@ -27,7 +27,10 @@ class GiveawayCog(commands.Cog):
 
     async def cog_load(self):
         """Restore giveaway aktif dari database saat bot start"""
-        await asyncio.sleep(3)  # tunggu bot ready
+        self.bot.loop.create_task(self._restore_giveaways())
+
+    async def _restore_giveaways(self):
+        await self.bot.wait_until_ready()
         try:
             giveaways = await self.bot.db.load_giveaways()
             now = datetime.now()
