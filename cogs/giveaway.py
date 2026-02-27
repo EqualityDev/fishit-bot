@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from datetime import datetime, timedelta
-from config import STAFF_ROLE_NAME
+from config import STAFF_ROLE_NAME, STORE_NAME
 from utils import is_staff
 
 
@@ -24,6 +24,38 @@ class GiveawayCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.active_giveaways = {}  # message_id: {prize, end_time, winners, host_id, participants: set}
+
+    async def cog_load(self):
+        """Restore giveaway aktif dari database saat bot start"""
+        await asyncio.sleep(3)  # tunggu bot ready
+        try:
+            giveaways = await self.bot.db.load_giveaways()
+            now = datetime.now()
+            restored = 0
+            for msg_id, data in giveaways.items():
+                self.active_giveaways[msg_id] = data
+                remaining = (data["end_time"] - now).total_seconds()
+                if remaining > 0:
+                    self.bot.loop.create_task(self._resume_giveaway(msg_id, remaining, data))
+                    restored += 1
+                else:
+                    # Sudah lewat waktu, langsung akhiri
+                    self.bot.loop.create_task(
+                        self._end_giveaway(msg_id, data["channel_id"], data["guild_id"],
+                                           data["prize"], data["winners"], data["host_id"])
+                    )
+            if restored:
+                print(f"✓ Restored {restored} active giveaway(s) from database")
+        except Exception as e:
+            print(f"❌ Error restoring giveaways: {e}")
+
+    async def _resume_giveaway(self, msg_id, remaining_seconds, data):
+        await asyncio.sleep(remaining_seconds)
+        if msg_id in self.active_giveaways:
+            await self._end_giveaway(
+                msg_id, data["channel_id"], data["guild_id"],
+                data["prize"], data["winners"], data["host_id"]
+            )
 
     def _build_embed(self, prize, end_time, winner_count, host, participants=0, ended=False, winner_mentions=None):
         color = 0x95a5a6 if ended else 0xFF6B6B
@@ -46,7 +78,7 @@ class GiveawayCog(commands.Cog):
             embed.add_field(name="Berakhir", value=f"<t:{int(end_time.timestamp())}:R>", inline=True)
             embed.description = f"Klik tombol **IKUTAN** di bawah untuk ikut!\nBerakhir: <t:{int(end_time.timestamp())}:F>"
 
-        embed.set_footer(text="CELLYN STORE • Giveaway" + (" • Selesai" if ended else ""))
+        embed.set_footer(text=f"{STORE_NAME} • Giveaway" + (" • Selesai" if ended else ""))
         return embed
 
     def _build_view(self, message_id, ended=False):
@@ -70,7 +102,6 @@ class GiveawayCog(commands.Cog):
 
             data = self.active_giveaways.get(message_id, {})
             participants = list(data.get("participants", set()))
-
             end_time = data.get("end_time", datetime.now())
 
             if not participants:
@@ -78,6 +109,7 @@ class GiveawayCog(commands.Cog):
                 embed = self._build_embed(prize, end_time, winner_count, host, participants=0, ended=True)
                 await message.edit(embed=embed, view=self._build_view(message_id, ended=True))
                 self.active_giveaways.pop(message_id, None)
+                await self.bot.db.delete_giveaway(message_id)
                 return
 
             actual_winners = min(winner_count, len(participants))
@@ -96,6 +128,7 @@ class GiveawayCog(commands.Cog):
             )
 
             self.active_giveaways.pop(message_id, None)
+            await self.bot.db.delete_giveaway(message_id)
 
             backup_channel = discord.utils.get(guild.channels, name="backup-db")
             if backup_channel:
@@ -103,7 +136,7 @@ class GiveawayCog(commands.Cog):
                 log_embed.add_field(name="Hadiah", value=prize, inline=True)
                 log_embed.add_field(name="Peserta", value=str(len(participants)), inline=True)
                 log_embed.add_field(name="Pemenang", value="\n".join(winner_mentions) or "-", inline=False)
-                log_embed.set_footer(text="CELLYN STORE • Giveaway Log")
+                log_embed.set_footer(text=f"{STORE_NAME} • Giveaway Log")
                 await backup_channel.send(embed=log_embed)
 
         except Exception as e:
@@ -131,6 +164,9 @@ class GiveawayCog(commands.Cog):
         else:
             participants.add(user_id)
             await interaction.response.send_message("✅ Kamu sudah terdaftar di giveaway! Semoga menang 🎉", ephemeral=True)
+
+        # Simpan perubahan peserta ke database
+        await self.bot.db.update_giveaway_participants(message_id, participants)
 
         # Update jumlah peserta di embed
         try:
@@ -169,7 +205,7 @@ class GiveawayCog(commands.Cog):
         await interaction.response.send_message("✅ Giveaway dimulai!", ephemeral=True)
         msg = await interaction.channel.send(embed=embed)
 
-        self.active_giveaways[msg.id] = {
+        giveaway_data = {
             "prize": hadiah,
             "end_time": end_time,
             "winners": pemenang,
@@ -178,6 +214,13 @@ class GiveawayCog(commands.Cog):
             "guild_id": interaction.guild.id,
             "participants": set(),
         }
+        self.active_giveaways[msg.id] = giveaway_data
+
+        # Simpan ke database
+        await self.bot.db.save_giveaway(
+            msg.id, interaction.channel.id, interaction.guild.id,
+            hadiah, end_time, pemenang, interaction.user.id, set()
+        )
 
         view = self._build_view(msg.id)
         await msg.edit(view=view)
@@ -217,8 +260,6 @@ class GiveawayCog(commands.Cog):
             target_channel = channel or interaction.channel
             msg = await target_channel.fetch_message(int(message_id))
 
-            # Cari peserta dari embed description tidak bisa, simpan di active_giveaways
-            # Untuk reroll, minta admin input manual atau ambil dari giveaway yang masih di memori
             data = self.active_giveaways.get(int(message_id))
             if data and data.get("participants"):
                 participants = list(data["participants"])

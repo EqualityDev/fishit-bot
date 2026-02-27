@@ -56,6 +56,16 @@ class SimpleDB:
                 key TEXT PRIMARY KEY,
                 value TEXT
             )''')
+            await db.execute('''CREATE TABLE IF NOT EXISTS giveaways (
+                message_id TEXT PRIMARY KEY,
+                channel_id TEXT,
+                guild_id TEXT,
+                prize TEXT,
+                end_time TEXT,
+                winners INTEGER,
+                host_id TEXT,
+                participants TEXT
+            )''')
             # Migrations
             try:
                 await db.execute("ALTER TABLE products ADD COLUMN spotlight INTEGER DEFAULT 0")
@@ -423,6 +433,55 @@ class SimpleDB:
         except Exception as e:
             print(f"❌ Error set setting: {e}")
             return False
+
+    # ─── Giveaways ───────────────────────────────────────────────
+
+    async def save_giveaway(self, message_id, channel_id, guild_id, prize, end_time, winners, host_id, participants):
+        import json
+        async with aiosqlite.connect(self.db_name) as db:
+            await db.execute(
+                "INSERT OR REPLACE INTO giveaways VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    str(message_id), str(channel_id), str(guild_id),
+                    prize, end_time.isoformat(), winners, str(host_id),
+                    json.dumps(list(participants)),
+                )
+            )
+            await db.commit()
+
+    async def update_giveaway_participants(self, message_id, participants):
+        import json
+        async with aiosqlite.connect(self.db_name) as db:
+            await db.execute(
+                "UPDATE giveaways SET participants=? WHERE message_id=?",
+                (json.dumps(list(participants)), str(message_id))
+            )
+            await db.commit()
+
+    async def delete_giveaway(self, message_id):
+        async with aiosqlite.connect(self.db_name) as db:
+            await db.execute("DELETE FROM giveaways WHERE message_id=?", (str(message_id),))
+            await db.commit()
+
+    async def load_giveaways(self):
+        import json
+        from datetime import datetime
+        result = {}
+        async with aiosqlite.connect(self.db_name) as db:
+            cursor = await db.execute("SELECT * FROM giveaways")
+            rows = await cursor.fetchall()
+            for row in rows:
+                message_id, channel_id, guild_id, prize, end_time, winners, host_id, participants = row
+                result[int(message_id)] = {
+                    "channel_id": int(channel_id),
+                    "guild_id": int(guild_id),
+                    "prize": prize,
+                    "end_time": datetime.fromisoformat(end_time),
+                    "winners": winners,
+                    "host_id": int(host_id),
+                    "participants": set(json.loads(participants)),
+                }
+        return result
 
 
 class ProductsCache:
