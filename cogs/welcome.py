@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timezone
 import asyncio
 import aiohttp
 import discord
@@ -132,6 +133,8 @@ class WelcomeCog(commands.Cog):
         if not channel:
             return
         member_count = sum(1 for m in member.guild.members if not m.bot)
+        if not member.bot:
+            member_count = max(0, member_count - 1)
         embed = discord.Embed(
             title="Member Keluar",
             description=(
