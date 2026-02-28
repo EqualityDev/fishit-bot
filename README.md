@@ -1,250 +1,175 @@
-# 🛒 QUANTUM BOT
+# Equality Bot — Discord Store Bot
 
-> A fully-featured Discord store bot for digital product sales — built with Python, discord.py, and SQLite.
-
----
-
-## Features
-
-### 🧾 Transaction System
-- Interactive ticket-based order flow
-- Payment method selection: **QRIS**, **DANA**, **BCA**
-- Auto-generated invoice numbers (daily reset, format `INV-YYYYMMDD-0001`)
-- Invoice sent to customer via **DM** + logged to **#log-transaksi**
-- HTML transcript saved on ticket close
-- Anti-spam ticket — 1 active ticket per user, redirects to existing ticket
-
-### Product Catalog
-- Dynamic catalog with category buttons
-- Spotlight system — pin up to 5 featured products
-- Quantity adjustment (+/-) inside ticket
-- Import products via Excel/CSV directly from Discord (`/importproduk`)
-- Harga item Robux mengikuti rate pasar saat ini
-
-### Admin Tools
-- `/addproduct`, `/editprice`, `/editname`, `/deleteitem`
-- `/importproduk` — bulk import products from `.xlsx` or `.csv` file
-- `/blacklist` / `/unblacklist` user management
-- `/broadcast` with preview before sending + log to `#backup-db`
-- `/stats`, `/statdetail`, `/allhistory`, `/export` (CSV)
-- `/backup`, `/listbackup`, `/restore` — manual DB management
-- `/resetdb`, `/cleanupstats` with modal confirmation
-
-### Giveaway System
-- `/giveaway` — start giveaway with duration (10m, 2h, 1d) and winner count
-- React 🎉 to join
-- `/giveaway_end` — end early
-- `/giveaway_reroll` — reroll winner
-- `/giveaway_list` — view active giveaways
-
-### ⚙️ Automation
-- **Auto Backup** — runs on bot start + every 6 hours, sent to `#backup-db`
-- **Auto Daily Summary** — sent every midnight to `#backup-db`
-- **Error Logging** — all errors automatically sent to `#backup-db`
-- **Backup Retention** — keeps only the last 5 local backups
-- **Member Count** — voice channel auto-updated every 10 minutes (excludes bots)
-
-### Auto React
-- `/setreact` — auto-react to staff messages
-- `/setreactall` — auto-react to all messages
-- 3-second cooldown per channel, max 10 emoji
-
-### Safety & Reliability
-- SQLite with **WAL mode** — no database locked errors
-- `active_tickets` re-hydrated from DB on bot restart
-- DB as **single source of truth** for products
-- Invoice counter stored in DB — safe from file corruption
+Bot Discord untuk manajemen toko digital — dari katalog produk, sistem tiket pembelian, pembayaran, hingga invoice otomatis. Dibangun untuk server Discord yang menjual produk digital seperti skin, gamepass, nitro, dan sejenisnya.
 
 ---
 
-## 🗂️ Project Structure
+## Fitur Utama
 
-```
-cellyn-store-bot/
-├── bot.py              # Entry point, shared state, background tasks
-├── config.py           # Constants and environment variables
-├── database.py         # SimpleDB class + ProductsCache
-├── utils.py            # Helper functions
-├── products.json       # Initial product list (first-run import only)
-├── .env                # Secret config (not committed)
-├── .env.example        # Environment variable template
-├── setup.sh            # One-time install script
-├── start.sh            # Startup script with auto update checker
-├── import_products.py  # CLI product importer (Excel/CSV)
-└── cogs/
-    ├── react.py        # Auto-react system
-    ├── admin.py        # Admin commands
-    ├── store.py        # Store commands and catalog
-    ├── ticket.py       # Ticket system
-    └── giveaway.py     # Giveaway system
-```
+- **Katalog Produk** — Tampilkan produk berdasarkan kategori dengan tombol interaktif
+- **Sistem Tiket** — Setiap pembelian membuka channel tiket pribadi antara buyer dan admin
+- **Multi Metode Bayar** — QRIS, DANA, dan BCA
+- **Invoice Otomatis** — Invoice dikirim ke log channel dan DM buyer setelah transaksi selesai
+- **Giveaway** — Sistem giveaway dengan countdown, tombol join, dan auto-pilih pemenang
+- **Auto React** — Reaksi emoji otomatis pada pesan di channel tertentu
+- **Broadcast** — Kirim pengumuman ke semua member (cooldown 1x/hari)
+- **Statistik** — Rekap transaksi harian dan total omset
+- **Auto Backup** — Backup database otomatis setiap 6 jam ke channel Discord
+- **Auto Restart** — Bot otomatis restart jika crash
 
 ---
 
-## Installation (Termux / Linux)
+## Instalasi
 
-### Quick Setup
+### Persyaratan
+- Python 3.10+
+- pip
+- Git
 
+### Langkah Instalasi
+
+**1. Clone repo**
 ```bash
-# 1. Install pip dulu (khusus Termux)
-pkg install python-pip
-
-# 2. Clone repo
 git clone https://github.com/EqualityDev/fishit-bot.git
 cd fishit-bot
+```
 
-# 3. Install dependencies
-bash setup.sh
+**2. Install dependencies**
+```bash
+pip install -r requirements.txt --break-system-packages
+```
 
-# 4. Isi konfigurasi
+**3. Buat file `.env`**
+```bash
+cp .env.example .env
 nano .env
+```
 
-# 5. Jalankan bot
+**4. Jalankan bot**
+```bash
 bash start.sh
 ```
-
-### Jalankan di Background (Termux)
-
-Supaya bot tetap jalan meski Termux ditutup:
-
-```bash
-pkg install screen
-screen -S cellyn
-bash start.sh
-```
-
-Tekan `Ctrl+A` lalu `D` untuk detach. Untuk kembali ke sesi:
-```bash
-screen -r cellyn
-```
-
-### Update Bot (setelah ada commit baru)
-
-`bash start.sh` otomatis cek update setiap kali dijalankan. Kalau ada update baru, akan muncul notifikasi dan pilihan untuk update sekarang atau skip.
-
-Atau manual:
-```bash
-cd ~/fishit-bot
-git pull
-bash start.sh
-```
-
-### `.env` Configuration
-
-```env
-DISCORD_TOKEN=your_bot_token_here
-DANA_NUMBER=08xxxxxxxxxx
-BCA_NUMBER=1234567890
-STAFF_ROLE_NAME=Admin Store
-BUYER_ROLE_NAME=Royal Customer
-LOG_CHANNEL_ID=
-STORE_NAME=Nama Toko Kamu
-STORE_THUMBNAIL=https://your-thumbnail-url.png
-STORE_BANNER=https://your-catalog-banner-url.png
-INVOICE_BANNER=https://your-terimakasih-banner-url.png
-BROADCAST_BANNER=https://your-broadcast-banner-url.png
-WELCOME_BANNER=https://your-welcome-banner-url.png
-```
-
-> Semua variabel banner bersifat opsional — jika tidak diisi, bot menggunakan banner default.
 
 ---
 
-## 📥 Importing Products
+## Konfigurasi `.env`
 
-### Via Discord (Recommended)
-1. Download template: `template_produk_cellyn.xlsx`
-2. Fill in your products
-3. In Discord: `/importproduk` → upload file
-4. Done — catalog updates instantly
+| Variable | Wajib | Keterangan |
+|---|---|---|
+| `DISCORD_TOKEN` | Ya | Token bot dari Discord Developer Portal |
+| `STORE_NAME` | Ya | Nama toko yang tampil di embed dan status bot |
+| `STAFF_ROLE_NAME` | Ya | Nama role admin/staff di server (default: `Admin Store`) |
+| `DANA_NUMBER` | Ya | Nomor DANA untuk pembayaran |
+| `BCA_NUMBER` | Ya | Nomor rekening BCA untuk pembayaran |
+| `LOG_CHANNEL_ID` | Ya | ID channel untuk log invoice |
+| `WATCHDOG_WEBHOOK` | Tidak | Webhook Discord untuk notifikasi saat bot crash/restart |
+| `STORE_THUMBNAIL` | Tidak | URL gambar thumbnail toko |
+| `STORE_BANNER` | Tidak | URL banner utama toko |
+| `BROADCAST_BANNER` | Tidak | URL banner untuk broadcast |
+| `INVOICE_BANNER` | Tidak | URL banner untuk invoice |
+| `WELCOME_BANNER` | Tidak | URL banner di tiket pembelian |
 
-### Via CLI (Termux)
-```bash
-python3 import_products.py products.csv
-```
+---
 
-### Template Format
+## Manajemen Produk
+
+Produk bisa ditambahkan via command Discord atau import file `.xlsx`/`.csv`.
+
+Format file import:
 
 | id | name | price | category |
-|----|------|-------|----------|
-| 1 | Nitro 1 Month | 75000 | NITRO |
-| 2 | Robux 1000 | 85000 | ROBUX |
+|---|---|---|---|
+| 1 | Skin Rare | 50000 | LIMITED SKIN |
+| 2 | Nitro 1 Bulan | 75000 | NITRO |
+
+Kategori yang didukung: `LIMITED SKIN`, `GAMEPASS`, `CRATE`, `BOOST`, `NITRO`, `RED FINGER`, `MIDMAN`, `LAINNYA`
 
 ---
 
-## 💬 Commands
+## Slash Commands
 
-### Customer Commands
-| Command | Description |
-|---------|-------------|
-| `/catalog` | Browse all products |
-| `/history` | View transaction history |
-| `/items` | View items in active ticket |
-| `/additem` | Add item to ticket |
-| `/removeitem` | Remove item from ticket |
-| `/qris` | View QRIS QR code |
-| `!cancel` | Cancel active ticket |
+### Untuk Semua User
 
-### Admin Commands
-| Command | Description |
-|---------|-------------|
-| `/addproduct` | Add a new product |
-| `/editprice` | Edit product price |
-| `/editname` | Edit product name |
-| `/deleteitem` | Delete a product |
-| `/listitems` | List all products |
-| `/importproduk` | Import products from Excel/CSV |
-| `/uploadqris` | Upload QRIS image |
-| `/setspotlight` | Pin product to spotlight (max 5) |
-| `/unsetspotlight` | Remove from spotlight |
-| `/listspotlight` | View spotlight products |
-| `/stats` | Sales statistics |
-| `/statdetail` | Detailed statistics |
-| `/allhistory` | All transactions for a user |
-| `/transcript` | Cari transcript tiket berdasarkan user |
-| `/export` | Export data as CSV |
-| `/broadcast` | Send message to all members |
-| `/blacklist` | Blacklist a user |
-| `/unblacklist` | Remove from blacklist |
-| `/backup` | Manual database backup |
-| `/listbackup` | List available backups |
-| `/restore` | Restore a backup |
-| `/resetdb` | Reset database |
-| `/cleanupstats` | Clean up statistics |
-| `/fakeinvoice` | Generate test invoice |
-| `/giveaway` | Start a giveaway |
-| `/giveaway_end` | End giveaway early |
-| `/giveaway_reroll` | Reroll winner |
-| `/giveaway_list` | View active giveaways |
-| `/setreact` | Set auto-react (staff) |
-| `/setreactall` | Set auto-react (all) |
-| `/reactlist` | View auto-react config |
-| `/ping` | Check bot status |
-| `/reboot` | Restart the bot |
+| Command | Keterangan |
+|---|---|
+| `/catalog` | Tampilkan katalog produk |
+| `/qris` | Tampilkan QR code pembayaran |
+| `/history` | Lihat riwayat transaksi pribadi |
+| `/help` | Tampilkan daftar command |
 
----
+### Giveaway
 
-## 🛠️ Tech Stack
+| Command | Keterangan |
+|---|---|
+| `/giveaway` | Mulai giveaway baru |
+| `/giveaway_end` | Akhiri giveaway lebih awal |
+| `/giveaway_reroll` | Reroll pemenang |
+| `/giveaway_list` | Lihat giveaway yang sedang aktif |
 
-| Component | Technology |
-|-----------|-----------|
-| Language | Python 3.10+ |
-| Discord Library | discord.py 2.x |
-| Database | SQLite (WAL mode) |
-| Async DB | aiosqlite |
-| Excel Import | openpyxl |
-| Config | python-dotenv |
-| Deployment | Termux (Android) / Railway |
+### Admin
+
+| Command | Keterangan |
+|---|---|
+| `/addproduct` | Tambah produk baru |
+| `/editprice` | Edit harga produk |
+| `/editname` | Edit nama produk |
+| `/deleteitem` | Hapus produk |
+| `/importproduk` | Import produk dari file xlsx/csv |
+| `/setspotlight` | Tandai produk sebagai spotlight |
+| `/unsetspotlight` | Hapus produk dari spotlight |
+| `/listspotlight` | Lihat daftar produk spotlight |
+| `/spotlight` | Kirim embed spotlight ke channel |
+| `/uploadqris` | Upload QR code baru |
+| `/broadcast` | Kirim pengumuman ke semua member |
+| `/fakeinvoice` | Buat invoice dummy untuk testing |
+| `/allhistory` | Lihat semua riwayat transaksi |
+| `/stats` | Statistik transaksi |
+| `/statdetail` | Statistik detail per periode |
+| `/export` | Export semua transaksi ke file |
+| `/blacklist` | Blacklist user |
+| `/unblacklist` | Hapus user dari blacklist |
+| `/setreact` | Aktifkan auto react untuk staff di channel |
+| `/setreactall` | Aktifkan auto react untuk semua pesan di channel |
+| `/reactlist` | Lihat channel yang aktif auto react |
+| `/backup` | Backup database manual |
+| `/listbackup` | Lihat daftar file backup |
+| `/restore` | Restore database dari backup |
+| `/transcript` | Generate transcript channel tiket |
+| `/ping` | Cek status dan latency bot |
+| `/reboot` | Restart bot |
+| `/migrate` | Migrasi data antar server |
+| `/cleanupstats` | Bersihkan data statistik lama |
+| `/resetdb` | Reset database (berbahaya!) |
 
 ---
 
-## 📝 License
+## Struktur Folder
 
-This project is private and proprietary.  
-All rights reserved © 2026 **Quantum BOT**
+```
+fishit-bot/
+├── bot.py              # Entry point utama
+├── config.py           # Konfigurasi dari .env
+├── database.py         # Semua operasi database SQLite
+├── utils.py            # Fungsi utility (invoice, transcript, dll)
+├── start.sh            # Script jalankan bot + auto-restart
+├── products.json       # Data produk awal (import pertama kali)
+├── .env                # Konfigurasi rahasia (jangan di-commit!)
+├── cogs/
+│   ├── admin.py        # Command admin
+│   ├── store.py        # Katalog, produk, history
+│   ├── ticket.py       # Sistem tiket pembelian
+│   ├── giveaway.py     # Sistem giveaway
+│   └── react.py        # Auto react
+├── backups/            # File backup database
+└── transcripts/        # File HTML transcript tiket
+```
 
 ---
 
-## 👤 Credits
+## Developer
 
-**Developed by:** EqualityDev  
+Dibuat oleh **Equality** — untuk keperluan toko digital di Discord.
+
+---
+
+> Bot ini bersifat open source dan boleh dimodifikasi sesuai kebutuhan.
