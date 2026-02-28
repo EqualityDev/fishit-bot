@@ -1,7 +1,31 @@
+# Environment
 .env
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+data/
+
+# Backups
+backups/
+
+# Transcripts
+transcripts/
+
+# Python cache
 __pycache__/
 *.pyc
-venv/
-.DS_Store
+*.pyo
+*.pyd
+
+# Logs
 *.log
-.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Invoice counter
+invoice_counter.txt
+broadcast_cooldown.json
