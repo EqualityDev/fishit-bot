@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'), override=True)
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 STAFF_ROLE_NAME = os.getenv("STAFF_ROLE_NAME", "Admin Store")
