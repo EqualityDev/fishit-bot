@@ -191,7 +191,6 @@ class StoreCog(commands.Cog):
                     "`/editprice` — Ubah harga\n"
                     "`/editname` — Ubah nama\n"
                     "`/deleteitem` — Hapus produk\n"
-                    "`/listitems` — Daftar semua item\n"
                     "`/importproduk` — Import dari Excel/CSV\n"
                     "`/uploadqris` — Upload QRIS\n"
                     "`/refreshcatalog` — Refresh catalog\n"

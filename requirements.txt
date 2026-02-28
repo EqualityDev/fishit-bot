@@ -1,5 +1,6 @@
-aiosqlite
-aiofiles
-discord.py==2.4.0
-openpyxl
-python-dotenv==1.0.0
+discord.py>=2.4.0
+aiosqlite>=0.19.0
+python-dotenv>=1.0.0
+openpyxl>=3.1.0
+pandas>=2.0.0
+requests>=2.31.0
