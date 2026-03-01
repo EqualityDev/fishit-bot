@@ -395,6 +395,45 @@ class TicketCog(commands.Cog):
                     await message.channel.delete()
                     return
 
+        if message.content.lower() == "!done" and is_ticket:
+            staff_role = discord.utils.get(message.guild.roles, name=STAFF_ROLE_NAME)
+            if staff_role not in message.author.roles:
+                await message.channel.send("❌ Admin only!")
+                return
+
+            try:
+                html_file = await generate_html_transcript(message.channel, message.author)
+                backup_channel = discord.utils.get(message.guild.channels, name="backup-db")
+                if not backup_channel:
+                    overwrites = {
+                        message.guild.default_role: discord.PermissionOverwrite(read_messages=False),
+                        message.guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True),
+                    }
+                    if staff_role:
+                        overwrites[staff_role] = discord.PermissionOverwrite(read_messages=True)
+                    backup_channel = await message.guild.create_text_channel(
+                        name="backup-db", overwrites=overwrites,
+                        topic=f"🔒 Backup otomatis database {STORE_NAME}"
+                    )
+                if backup_channel:
+                    await backup_channel.send(
+                        content=(
+                            f"📁 **HTML Transcript**\n"
+                            f"Channel: {message.channel.name}\n"
+                            f"Ditutup oleh: {message.author.mention}"
+                        ),
+                        file=discord.File(html_file),
+                    )
+            except Exception as e:
+                print(f"❌ Error transcript: {e}")
+
+            await message.channel.send("✅ Tiket ditutup. Terima kasih! Channel akan dihapus dalam 5 detik...")
+            self.bot.active_tickets.pop(channel_id, None)
+            await self.bot.db.update_ticket_status(channel_id, "CLOSED", None)
+            await asyncio.sleep(5)
+            await message.channel.delete()
+            return
+
         # ─── Payment Method Selection ────────────────────────────
 
         if is_ticket and channel_id in self.bot.active_tickets:
