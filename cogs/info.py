@@ -19,7 +19,7 @@ async def _get_qris_url(bot):
 
 async def _get_items_by_category(bot):
     try:
-        async with bot.db.db.execute("SELECT category, name FROM items ORDER BY category, name") as cursor:
+        async with bot.db.db.execute("SELECT category, name FROM products ORDER BY category, name") as cursor:
             rows = await cursor.fetchall()
         result = {}
         for category, name in rows:
