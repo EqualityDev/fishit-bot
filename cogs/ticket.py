@@ -287,7 +287,7 @@ class TicketCog(commands.Cog):
             staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
             verify_view = discord.ui.View()
             verify_btn = discord.ui.Button(
-                label="✅ VERIFIKASI & CLOSE",
+                label="✅ Verifikasi Pembayaran",
                 style=discord.ButtonStyle.success,
                 custom_id="verify_payment",
             )
@@ -321,21 +321,8 @@ class TicketCog(commands.Cog):
                 await interaction.followup.send("❌ Tiket sudah diproses.", ephemeral=True)
                 return
 
-            invoice_num = await send_invoice(
-                interaction.guild,
-                {
-                    "user_id": ticket["user_id"],
-                    "items": ticket["items"],
-                    "total_price": ticket["total_price"],
-                    "payment_method": ticket.get("payment_method"),
-                    "admin_id": str(interaction.user.id),
-                },
-                self.bot.db,
-            )
-
             await interaction.channel.send(
                 f"✅ **Pembayaran dikonfirmasi!**\n"
-                f"📋 Invoice: `{invoice_num}`\n\n"
                 f"Lanjutkan proses serah terima item. Ketik `!done` setelah semua selesai."
             )
 
@@ -359,7 +346,7 @@ class TicketCog(commands.Cog):
             if channel_id in self.bot.active_tickets and self.bot.active_tickets[channel_id]["status"] == "OPEN":
                 ticket = self.bot.active_tickets[channel_id]
                 staff_role = discord.utils.get(message.guild.roles, name=STAFF_ROLE_NAME)
-                if str(message.author.id) == ticket["user_id"] or staff_role in message.author.roles:
+                if staff_role in message.author.roles:
                     await message.channel.send("Transaksi dibatalkan. Ticket closed.")
                     await asyncio.sleep(3)
                     self.bot.active_tickets.pop(channel_id, None)
@@ -398,6 +385,21 @@ class TicketCog(commands.Cog):
                     )
             except Exception as e:
                 print(f"❌ Error transcript: {e}")
+
+            # Kirim invoice ke DM buyer
+            ticket = self.bot.active_tickets.get(channel_id)
+            if ticket:
+                await send_invoice(
+                    message.guild,
+                    {
+                        "user_id": ticket["user_id"],
+                        "items": ticket["items"],
+                        "total_price": ticket["total_price"],
+                        "payment_method": ticket.get("payment_method"),
+                        "admin_id": str(message.author.id),
+                    },
+                    self.bot.db,
+                )
 
             await message.channel.send("✅ Tiket ditutup. Terima kasih! Channel akan dihapus dalam 5 detik...")
             self.bot.active_tickets.pop(channel_id, None)
