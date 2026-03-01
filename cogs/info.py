@@ -103,25 +103,6 @@ async def build_embeds(bot, guild):
     e3.set_footer(text=f"{STORE_NAME} \u2022 Metode Pembayaran")
     embeds.append(e3)
 
-    items_by_cat = await _get_items_by_category(bot)
-    desc = ""
-    if items_by_cat:
-        for cat, items in items_by_cat.items():
-            desc += f"**{cat}**\n"
-            for item in items:
-                desc += f"- {item}\n"
-            desc += "\n"
-    else:
-        desc = "Belum ada produk yang terdaftar."
-    desc += "\n\U0001f4a1 **Harga menyesuaikan rate pasar, tanya admin untuk harga terkini.**"
-
-    e4 = discord.Embed(
-        title="\U0001f4e6 Daftar Produk",
-        description=desc,
-        color=0x00BFFF,
-    )
-    e4.set_footer(text=f"{STORE_NAME} \u2022 Daftar Produk")
-    embeds.append(e4)
 
     e5 = discord.Embed(
         title="\u2753 FAQ — Pertanyaan yang Sering Ditanya",
