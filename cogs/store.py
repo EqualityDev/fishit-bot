@@ -124,7 +124,7 @@ class StoreCog(commands.Cog):
 
         embed = discord.Embed(
             title=f"{STORE_NAME} - READY STOCK",
-            description="Payment: QRIS / DANA / BCA\n⚠️ Harga item Robux dapat berubah mengikuti rate pasar saat ini.",
+            description="**For Your Information**\n- **Silakan tanyakan informasi produk kepada admin sebelum membuka tiket.**\n- **Buka tiket hanya jika Anda sudah yakin ingin melakukan pembelian.**\n- **Membuka tiket tanpa niat beli dapat berakibat blacklist.**\n- **Harga item Robux dapat berubah mengikuti rate pasar saat ini.**",
             color=0x00BFFF,
         )
         embed.set_thumbnail(url=STORE_THUMBNAIL)
