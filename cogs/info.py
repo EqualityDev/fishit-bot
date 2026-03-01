@@ -10,17 +10,19 @@ INFO_CHANNEL_NAME = "📒┃panduan"
 
 async def _get_qris_url(bot):
     try:
-        async with bot.db.db.execute("SELECT value FROM settings WHERE key = 'qris_url'") as cursor:
-            row = await cursor.fetchone()
-            return row[0] if row else None
+        async with aiosqlite.connect(bot.db.db_name) as db:
+            async with db.execute("SELECT value FROM settings WHERE key = 'qris_url'") as cursor:
+                row = await cursor.fetchone()
+                return row[0] if row else None
     except Exception:
         return None
 
 
 async def _get_items_by_category(bot):
     try:
-        async with bot.db.db.execute("SELECT category, name FROM products ORDER BY category, name") as cursor:
-            rows = await cursor.fetchall()
+        async with aiosqlite.connect(bot.db.db_name) as db:
+            async with db.execute("SELECT category, name FROM products ORDER BY category, name") as cursor:
+                rows = await cursor.fetchall()
         result = {}
         for category, name in rows:
             result.setdefault(category, []).append(name)
