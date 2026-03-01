@@ -371,6 +371,7 @@ class AdminCog(commands.Cog):
             color=0x00BFFF,
             timestamp=datetime.now(),
         )
+        embed.set_author(name=f"Dari: {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
         embed.set_thumbnail(url=STORE_THUMBNAIL)
         embed.set_image(url=BROADCAST_BANNER)
         embed.set_footer(text=f"{STORE_NAME} • PREMIUM DIGITAL", icon_url=STORE_THUMBNAIL)
