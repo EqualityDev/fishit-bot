@@ -346,85 +346,98 @@ class AdminCog(commands.Cog):
     # ─── Broadcast ───────────────────────────────────────────────
 
     @app_commands.command(name="broadcast", description="[ADMIN] Kirim pesan ke semua member")
-    @app_commands.describe(pesan="Pesan yang akan dikirim")
-    async def broadcast(self, interaction: discord.Interaction, pesan: str):
-        await interaction.response.defer(ephemeral=True)
+    async def broadcast(self, interaction: discord.Interaction):
         if not is_staff(interaction):
-            await interaction.followup.send("❌ Hanya admin yang bisa broadcast!", ephemeral=True)
+            await interaction.response.send_message("❌ Hanya admin yang bisa broadcast!", ephemeral=True)
             return
         user_id = str(interaction.user.id)
-        last_used = self.broadcast_cooldown.get(user_id, 0)
         current_time = time.time()
+        last_used = self.broadcast_cooldown.get(user_id, 0)
         if current_time - last_used < 86400:
             remaining = 86400 - (current_time - last_used)
             jam = int(remaining // 3600)
             menit = int((remaining % 3600) // 60)
-            await interaction.followup.send(
+            await interaction.response.send_message(
                 f"⏱️ Broadcast cuma bisa sekali per hari!\n🕐 Sisa: **{jam} jam {menit} menit**",
                 ephemeral=True,
             )
             return
 
-        embed = discord.Embed(
-            title=f"📢 Pengumuman {STORE_NAME}",
-            description=pesan,
-            color=0x00BFFF,
-            timestamp=datetime.now(),
-        )
-        embed.set_author(name=f"Dari: {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
-        embed.set_thumbnail(url=STORE_THUMBNAIL)
-        embed.set_image(url=BROADCAST_BANNER)
-        embed.set_footer(text=f"{STORE_NAME} • PREMIUM DIGITAL", icon_url=STORE_THUMBNAIL)
+        admin = interaction.user
+        broadcast_self = self
 
-        view = discord.ui.View(timeout=60)
-        kirim_btn = discord.ui.Button(label="Kirim", style=discord.ButtonStyle.success)
-        batal_btn = discord.ui.Button(label="Batal", style=discord.ButtonStyle.danger)
-
-        async def kirim_callback(btn: discord.Interaction):
-            if btn.user.id != interaction.user.id:
-                await btn.response.send_message("❌ Bukan hakmu!", ephemeral=True)
-                return
-            await btn.response.edit_message(content="📢 Mengirim broadcast...", embed=None, view=None)
-            self.broadcast_cooldown[user_id] = current_time
-            save_broadcast_cooldown(self.broadcast_cooldown)
-            success = failed = 0
-            for member in btn.guild.members:
-                if member.bot:
-                    continue
-                try:
-                    await member.send(embed=embed)
-                    success += 1
-                    await asyncio.sleep(0.5)
-                except Exception:
-                    failed += 1
-            await btn.edit_original_response(
-                content=f"✅ Broadcast selesai! Terkirim: **{success}**, Gagal: **{failed}**"
+        class BroadcastModal(discord.ui.Modal, title="Broadcast Pesan"):
+            pesan = discord.ui.TextInput(
+                label="Pesan",
+                style=discord.TextStyle.paragraph,
+                placeholder="Tulis pesan broadcast di sini...\nBisa multiline dan pakai **bold**",
+                max_length=2000,
             )
-            backup_channel = discord.utils.get(btn.guild.channels, name="backup-db")
-            if backup_channel:
-                log_embed = discord.Embed(title="LOG BROADCAST", color=0x00BFFF, timestamp=datetime.now())
-                log_embed.add_field(name="Admin", value=interaction.user.mention, inline=True)
-                log_embed.add_field(name="Terkirim", value=str(success), inline=True)
-                log_embed.add_field(name="Gagal", value=str(failed), inline=True)
-                log_embed.add_field(name="Pesan", value=pesan[:500], inline=False)
-                log_embed.set_footer(text=f"{STORE_NAME} • Broadcast Log")
-                await backup_channel.send(embed=log_embed)
 
-        async def batal_callback(btn: discord.Interaction):
-            if btn.user.id != interaction.user.id:
-                await btn.response.send_message("❌ Bukan hakmu!", ephemeral=True)
-                return
-            await btn.response.edit_message(content="❌ Broadcast dibatalkan.", embed=None, view=None)
+            async def on_submit(modal_self, modal_interaction: discord.Interaction):
+                pesan_text = str(modal_self.pesan)
+                embed = discord.Embed(
+                    title=f"📢 Pengumuman {STORE_NAME}",
+                    description=pesan_text,
+                    color=0x00BFFF,
+                    timestamp=datetime.now(),
+                )
+                embed.set_author(name=f"Dari: {admin.display_name}", icon_url=admin.display_avatar.url)
+                embed.set_thumbnail(url=STORE_THUMBNAIL)
+                embed.set_image(url=BROADCAST_BANNER)
+                embed.set_footer(text=f"{STORE_NAME} • PREMIUM DIGITAL", icon_url=STORE_THUMBNAIL)
 
-        kirim_btn.callback = kirim_callback
-        batal_btn.callback = batal_callback
-        view.add_item(kirim_btn)
-        view.add_item(batal_btn)
+                view = discord.ui.View(timeout=60)
+                kirim_btn = discord.ui.Button(label="Kirim", style=discord.ButtonStyle.success)
+                batal_btn = discord.ui.Button(label="Batal", style=discord.ButtonStyle.danger)
 
-        await interaction.followup.send(
-            content="**Preview broadcast — cek dulu sebelum kirim:**",
-            embed=embed, view=view, ephemeral=True,
-        )
+                async def kirim_callback(btn: discord.Interaction):
+                    if btn.user.id != admin.id:
+                        await btn.response.send_message("❌ Bukan hakmu!", ephemeral=True)
+                        return
+                    await btn.response.edit_message(content="📢 Mengirim broadcast...", embed=None, view=None)
+                    broadcast_self.broadcast_cooldown[user_id] = current_time
+                    save_broadcast_cooldown(broadcast_self.broadcast_cooldown)
+                    success = failed = 0
+                    for member in btn.guild.members:
+                        if member.bot:
+                            continue
+                        try:
+                            await member.send(embed=embed)
+                            success += 1
+                            await asyncio.sleep(0.5)
+                        except Exception:
+                            failed += 1
+                    await btn.edit_original_response(
+                        content=f"✅ Broadcast selesai! Terkirim: **{success}**, Gagal: **{failed}**"
+                    )
+                    backup_channel = discord.utils.get(btn.guild.channels, name="backup-db")
+                    if backup_channel:
+                        log_embed = discord.Embed(title="LOG BROADCAST", color=0x00BFFF, timestamp=datetime.now())
+                        log_embed.add_field(name="Admin", value=admin.mention, inline=True)
+                        log_embed.add_field(name="Terkirim", value=str(success), inline=True)
+                        log_embed.add_field(name="Gagal", value=str(failed), inline=True)
+                        log_embed.add_field(name="Pesan", value=pesan_text[:500], inline=False)
+                        log_embed.set_footer(text=f"{STORE_NAME} • Broadcast Log")
+                        await backup_channel.send(embed=log_embed)
+
+                async def batal_callback(btn: discord.Interaction):
+                    if btn.user.id != admin.id:
+                        await btn.response.send_message("❌ Bukan hakmu!", ephemeral=True)
+                        return
+                    await btn.response.edit_message(content="❌ Broadcast dibatalkan.", embed=None, view=None)
+
+                kirim_btn.callback = kirim_callback
+                batal_btn.callback = batal_callback
+                view.add_item(kirim_btn)
+                view.add_item(batal_btn)
+
+                await modal_interaction.response.send_message(
+                    content="**Preview broadcast — cek dulu sebelum kirim:**",
+                    embed=embed, view=view, ephemeral=True,
+                )
+
+        await interaction.response.send_modal(BroadcastModal())
 
     # ─── Misc ────────────────────────────────────────────────────
 
