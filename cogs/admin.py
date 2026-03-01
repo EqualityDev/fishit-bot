@@ -483,7 +483,7 @@ class AdminCog(commands.Cog):
             except Exception:
                 pass
 
-        await asyncio.sleep(3)
+        await asyncio.sleep(5)
         sys.exit(0)
 
     # ─── Misc ────────────────────────────────────────────────────
