@@ -161,39 +161,42 @@ class StoreCog(commands.Cog):
     async def help_command(self, interaction: discord.Interaction):
         pages = [
             {
-                "title": "CARA ORDER",
+                "title": "🛒 CARA ORDER",
                 "description": (
-                    "**1.** `/catalog` → lihat semua item\n"
-                    "**2.** Klik **BUY** → pilih item\n"
-                    "**3.** Tiket terbuka otomatis\n"
-                    "**4.** Ketik `1` / `2` / `3` pilih metode bayar\n"
-                    "**5.** Transfer + kirim bukti pembayaran\n"
-                    "**6.** Klik tombol **PAID**\n\n"
-                    f"**Metode:** QRIS (1) · DANA {DANA_NUMBER} (2) · BCA {BCA_NUMBER} (3)"
+                    "**1.** Lihat produk di channel catalog\n"
+                    "**2.** Klik tombol **BUY** sesuai kategori\n"
+                    "**3.** Pilih item dari dropdown\n"
+                    "**4.** Tiket terbuka otomatis\n"
+                    "**5.** Admin menyapa & konfirmasi harga\n"
+                    "**6.** Ketik `1` (QRIS) · `2` (DANA) · `3` (BCA)\n"
+                    "**7.** Transfer + kirim bukti pembayaran\n"
+                    "**8.** Klik tombol **PAID**\n"
+                    "**9.** Tunggu admin verifikasi & serah terima item\n"
+                    "**10.** Tinggalkan testimoni di channel testimoni\n\n"
+                    f"💳 **DANA:** `{DANA_NUMBER}` · **BCA:** `{BCA_NUMBER}` · **QRIS** tersedia"
                 ),
             },
             {
-                "title": "COMMAND CUSTOMER",
+                "title": "👤 COMMAND MEMBER",
                 "description": (
-                    "`/catalog` — Lihat semua item\n"
-                    "`/history` — Riwayat transaksi\n"
-                    "`/items` — Item di tiket aktif\n"
-                    "`/additem` — Tambah item ke tiket\n"
-                    "`/removeitem` — Hapus item dari tiket\n"
-                    "`/qris` — Lihat QR code\n"
-                    "`!cancel` — Batalkan tiket"
+                    "`/catalog` — Lihat semua produk\n"
+                    "`/qris` — Lihat QR code pembayaran\n"
+                    "`/help` — Tampilkan bantuan ini\n\n"
+                    "**Di dalam tiket:**\n"
+                    "Ketik `1` / `2` / `3` — Pilih metode pembayaran\n"
+                    "`!cancel` — Batalkan tiket (jika belum bayar)"
                 ),
             },
             {
-                "title": "COMMAND ADMIN — PRODUK",
+                "title": "🛍️ COMMAND ADMIN — PRODUK",
                 "description": (
-                    "`/addproduct` — Tambah produk\n"
-                    "`/editprice` — Ubah harga\n"
-                    "`/editname` — Ubah nama\n"
+                    "`/addproduct` — Tambah produk baru\n"
+                    "`/editprice` — Ubah harga produk\n"
+                    "`/editname` — Ubah nama produk\n"
                     "`/deleteitem` — Hapus produk\n"
-                    "`/importproduk` — Import dari Excel/CSV\n"
-                    "`/uploadqris` — Upload QRIS\n"
-                    "`/refreshcatalog` — Refresh catalog\n"
+                    "`/listitems` — Lihat semua produk\n"
+                    "`/uploadqris` — Upload QRIS baru\n"
+                    "`/refreshcatalog` — Refresh tampilan catalog\n"
                     "`/spotlight` — Buat embed spotlight\n"
                     "`/setspotlight` — Set item spotlight (max 5)\n"
                     "`/unsetspotlight` — Hapus item spotlight\n"
@@ -201,39 +204,45 @@ class StoreCog(commands.Cog):
                 ),
             },
             {
-                "title": "COMMAND ADMIN — SISTEM",
+                "title": "⚙️ COMMAND ADMIN — SISTEM",
                 "description": (
-                    "`/stats` — Statistik penjualan\n"
-                    "`/statdetail` — Detail statistik\n"
-                    "`/allhistory` — Semua transaksi user\n"
-                    "`/transcript` — Cari transcript tiket\n"
-                    "`/export` — Export data CSV\n"
-                    "`/broadcast` — Kirim pesan ke semua\n"
-                    "`/blacklist` — Blokir user\n"
-                    "`/unblacklist` — Hapus blokir user\n"
-                    "`/backup` — Backup manual DB\n"
-                    "`/listbackup` — Daftar backup\n"
-                    "`/restore` — Restore backup\n"
-                    "`/migrate` — Export/import data migrasi\n"
-                    "`/resetdb` — Reset database\n"
-                    "`/cleanupstats` — Hapus data statistik\n"
-                    "`/fakeinvoice` — Generate invoice test\n"
-                    "`/ping` — Cek status bot\n"
-                    "`/reboot` — Restart bot"
+                    "`/broadcast` — Kirim pesan ke semua member (1x/hari)\n"
+                    "`/fakeinvoice` — Buat invoice manual\n"
+                    "`/closedtickets` — Riwayat tiket selesai\n"
+                    "`/blacklist` — Blacklist member\n"
+                    "`/unblacklist` — Hapus dari blacklist\n"
+                    "`/blacklistlist` — Lihat daftar blacklist\n"
+                    "`/backup` — Backup database manual\n"
+                    "`/restorebackup` — Restore database\n"
+                    "`/cleanupstats` — Bersihkan data statistik\n"
+                    "`/ping` — Cek status & latency bot\n"
+                    "`/restart` — Restart bot\n\n"
+                    "**Di dalam tiket:**\n"
+                    "`!done` — Selesaikan & tutup tiket\n"
+                    "`!cancel` — Batalkan & tutup tiket"
                 ),
             },
             {
-                "title": "COMMAND ADMIN — LAINNYA",
+                "title": "🎛️ COMMAND ADMIN — SERVER",
                 "description": (
+                    "**Welcome & Leave**\n"
+                    "`/setwelcome action:channel` — Set channel welcome\n"
+                    "`/setwelcome action:gif` — Upload GIF welcome\n"
+                    "`/setwelcome action:boostgif` — Upload GIF boost\n"
+                    "`/setwelcome action:test` — Preview welcome\n"
+                    "`/setwelcome action:off` — Matikan welcome\n\n"
+                    "**Info Toko**\n"
+                    "`/setupinfo` — Post info toko ke channel panduan\n"
+                    "`/refreshinfo` — Refresh info toko\n\n"
                     "**Giveaway**\n"
                     "`/giveaway` — Mulai giveaway baru\n"
                     "`/giveaway_end` — Akhiri giveaway lebih awal\n"
                     "`/giveaway_reroll` — Reroll pemenang\n"
                     "`/giveaway_list` — Lihat giveaway aktif\n\n"
                     "**Auto React**\n"
-                    "`/setreact` — Set auto react (staff)\n"
-                    "`/setreactall` — Set auto react (semua)\n"
-                    "`/reactlist` — Lihat daftar react"
+                    "`/setreact` — Set auto react (staff only)\n"
+                    "`/setreactall` — Set auto react (semua member)\n"
+                    "`/reactlist` — Lihat daftar auto react"
                 ),
             },
         ]
