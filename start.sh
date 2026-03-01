@@ -124,7 +124,11 @@ while true; do
 
     trim_log
 
-    retries=$((retries + 1))
+    if [ $EXIT_CODE -eq 0 ]; then
+        retries=0
+    else
+        retries=$((retries + 1))
+    fi
     log ERROR "Bot mati! (exit: $EXIT_CODE) — Percobaan $retries/$MAX_RETRIES"
 
     send_webhook "🔴 BOT MATI" "Bot crash, mencoba restart..." "15158332" \
