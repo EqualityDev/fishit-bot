@@ -440,6 +440,28 @@ class AdminCog(commands.Cog):
 
         await interaction.response.send_modal(BroadcastModal())
 
+    # ─── Update ──────────────────────────────────────────────────
+    @app_commands.command(name="update", description="[ADMIN] Pull update dari GitHub dan restart bot")
+    async def update_bot(self, interaction: discord.Interaction):
+        if not is_staff(interaction):
+            await interaction.response.send_message("Hanya admin yang bisa update bot!", ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True)
+        import subprocess, sys, asyncio
+        result = subprocess.run(
+            ["git", "pull", "origin", "main"],
+            capture_output=True, text=True,
+            cwd="/data/data/com.termux/files/home/fishit-bot"
+        )
+        output = (result.stdout.strip() or result.stderr.strip())[:500]
+        if "Already up to date" in output:
+            await interaction.followup.send("Bot sudah versi terbaru, tidak perlu update.", ephemeral=True)
+            return
+        msg = "Update berhasil!\n" + "```\n" + output + "\n```\n" + "Bot akan restart dalam 3 detik..."
+        await interaction.followup.send(msg, ephemeral=True)
+        await asyncio.sleep(3)
+        sys.exit(0)
+
     # ─── Misc ────────────────────────────────────────────────────
 
     @app_commands.command(name="cleanupstats", description="[ADMIN] Bersihin voice channel stats duplikat")
