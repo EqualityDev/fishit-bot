@@ -346,7 +346,8 @@ class AdminCog(commands.Cog):
     # ─── Broadcast ───────────────────────────────────────────────
 
     @app_commands.command(name="broadcast", description="[ADMIN] Kirim pesan ke semua member")
-    async def broadcast(self, interaction: discord.Interaction):
+    @app_commands.describe(image_url="URL gambar opsional untuk disertakan di broadcast")
+    async def broadcast(self, interaction: discord.Interaction, image_url: str = None):
         if not is_staff(interaction):
             await interaction.response.send_message("❌ Hanya admin yang bisa broadcast!", ephemeral=True)
             return
@@ -384,7 +385,7 @@ class AdminCog(commands.Cog):
                 )
                 embed.set_author(name=f"Dari: {admin.display_name}", icon_url=admin.display_avatar.url)
                 embed.set_thumbnail(url=STORE_THUMBNAIL)
-                embed.set_image(url=BROADCAST_BANNER)
+                embed.set_image(url=image_url if image_url else BROADCAST_BANNER)
                 embed.set_footer(text=f"{STORE_NAME} • PREMIUM DIGITAL", icon_url=STORE_THUMBNAIL)
 
                 view = discord.ui.View(timeout=60)
