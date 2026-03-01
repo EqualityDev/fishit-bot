@@ -126,13 +126,13 @@ while true; do
 
     if [ $EXIT_CODE -eq 0 ]; then
         retries=0
+        log OK "Bot restart disengaja (exit 0), counter direset."
     else
         retries=$((retries + 1))
+        log ERROR "Bot mati! (exit: $EXIT_CODE) — Percobaan $retries/$MAX_RETRIES"
+        send_webhook "BOT MATI" "Bot crash, mencoba restart..." "15158332" \
+            "[{\"name\":\"Exit Code\",\"value\":\"$EXIT_CODE\",\"inline\":true},{\"name\":\"Percobaan\",\"value\":\"$retries/${MAX_RETRIES}\",\"inline\":true}]"
     fi
-    log ERROR "Bot mati! (exit: $EXIT_CODE) — Percobaan $retries/$MAX_RETRIES"
-
-    send_webhook "🔴 BOT MATI" "Bot crash, mencoba restart..." "15158332" \
-        "[{\"name\":\"Exit Code\",\"value\":\"$EXIT_CODE\",\"inline\":true},{\"name\":\"Percobaan\",\"value\":\"$retries/${MAX_RETRIES}\",\"inline\":true}]"
 
     if [ $retries -ge $MAX_RETRIES ]; then
         log ERROR "Max retry tercapai! Butuh intervensi manual."

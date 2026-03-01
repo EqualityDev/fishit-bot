@@ -245,6 +245,29 @@ async def on_ready():
 
     logger.info(f"BOT READY — {bot.user} | Servers: {len(bot.guilds)}")
 
+    # Kirim notif webhook bot hidup
+    import os, aiohttp, datetime
+    webhook_url = os.getenv("WATCHDOG_WEBHOOK", "")
+    if webhook_url:
+        payload = {
+            "embeds": [{
+                "title": "BOT HIDUP",
+                "description": f"Bot online dan siap digunakan.",
+                "color": 3066993,
+                "fields": [
+                    {"name": "Bot", "value": str(bot.user), "inline": True},
+                    {"name": "Server", "value": str(len(bot.guilds)), "inline": True}
+                ],
+                "footer": {"text": "EQUALITY BOT • Monitor"},
+                "timestamp": datetime.datetime.utcnow().isoformat()
+            }]
+        }
+        try:
+            async with aiohttp.ClientSession() as session:
+                await session.post(webhook_url, json=payload)
+        except Exception:
+            pass
+
     await bot.db.init_db()
 
     db_products = await bot.db.load_products()
