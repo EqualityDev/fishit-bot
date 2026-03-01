@@ -366,7 +366,7 @@ class AdminCog(commands.Cog):
             return
 
         embed = discord.Embed(
-            title=f"📢 For Your Information",
+            title=f"📢 Pengumuman {STORE_NAME}",
             description=pesan,
             color=0x00BFFF,
             timestamp=datetime.now(),
