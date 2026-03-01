@@ -459,6 +459,30 @@ class AdminCog(commands.Cog):
             return
         msg = "Update berhasil!\n" + "```\n" + output + "\n```\n" + "Bot akan restart dalam 3 detik..."
         await interaction.followup.send(msg, ephemeral=True)
+
+        # Kirim notif ke webhook
+        import os, aiohttp
+        webhook_url = os.getenv("WATCHDOG_WEBHOOK", "")
+        if webhook_url:
+            import datetime
+            payload = {
+                "embeds": [{
+                    "title": "BOT UPDATE",
+                    "description": f"Bot diupdate oleh **{interaction.user.display_name}**",
+                    "color": 3066993,
+                    "fields": [
+                        {"name": "Changelog", "value": f"```{output[:400]}```", "inline": False}
+                    ],
+                    "footer": {"text": "EQUALITY BOT • Monitor"},
+                    "timestamp": datetime.datetime.utcnow().isoformat()
+                }]
+            }
+            try:
+                async with aiohttp.ClientSession() as session:
+                    await session.post(webhook_url, json=payload)
+            except Exception:
+                pass
+
         await asyncio.sleep(3)
         sys.exit(0)
 
