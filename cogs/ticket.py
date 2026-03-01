@@ -334,40 +334,12 @@ class TicketCog(commands.Cog):
             )
 
             await interaction.channel.send(
-                f"✅ **TRANSAKSI SELESAI!**\n📋 Invoice: `{invoice_num}`\nTerima kasih! Channel akan ditutup dalam 5 detik..."
+                f"✅ **Pembayaran dikonfirmasi!**\n"
+                f"📋 Invoice: `{invoice_num}`\n\n"
+                f"Lanjutkan proses serah terima item. Ketik `!done` setelah semua selesai."
             )
 
-            try:
-                html_file = await generate_html_transcript(interaction.channel, interaction.user)
-                backup_channel = discord.utils.get(interaction.guild.channels, name="backup-db")
-                if not backup_channel:
-                    overwrites = {
-                        interaction.guild.default_role: discord.PermissionOverwrite(read_messages=False),
-                        interaction.guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True),
-                    }
-                    if staff_role:
-                        overwrites[staff_role] = discord.PermissionOverwrite(read_messages=True)
-                    backup_channel = await interaction.guild.create_text_channel(
-                        name="backup-db", overwrites=overwrites,
-                        topic=f"🔒 Backup otomatis database {STORE_NAME}"
-                    )
-                if backup_channel:
-                    await backup_channel.send(
-                        content=(
-                            f"📁 **HTML Transcript**\n"
-                            f"Channel: {interaction.channel.name}\n"
-                            f"Ditutup oleh: {interaction.user.mention}\n"
-                            f"Invoice: `{invoice_num}`"
-                        ),
-                        file=discord.File(html_file),
-                    )
-            except Exception as e:
-                print(f"❌ Error transcript: {e}")
-
-            await self.bot.db.update_ticket_status(channel_id, "CLOSED", ticket.get("payment_method"))
-            await asyncio.sleep(5)
-            self.bot.active_tickets.pop(channel_id, None)
-            await interaction.channel.delete()
+            await self.bot.db.update_ticket_status(channel_id, "PAID", ticket.get("payment_method"))
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
