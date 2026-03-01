@@ -5,7 +5,7 @@ from config import STAFF_ROLE_NAME, STORE_NAME, DANA_NUMBER, BCA_NUMBER, STORE_T
 from utils import is_staff
 
 TIKTOK_URL = "https://www.tiktok.com/@panggilan437"
-INFO_CHANNEL_NAME = "panduan"
+INFO_CHANNEL_NAME = "📒┃panduan"
 
 
 async def _get_qris_url(bot):
