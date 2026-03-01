@@ -318,6 +318,8 @@ async def main():
         await bot.load_extension("cogs.store")
         await bot.load_extension("cogs.ticket")
         await bot.load_extension("cogs.giveaway")
+        await bot.load_extension("cogs.welcome")
+        await bot.load_extension("cogs.welcome")
         logger.info("✓ All cogs loaded")
         await bot.start(TOKEN)
 
