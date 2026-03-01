@@ -18,19 +18,6 @@ async def _get_qris_url(bot):
         return None
 
 
-async def _get_items_by_category(bot):
-    try:
-        async with aiosqlite.connect(bot.db.db_name) as db:
-            async with db.execute("SELECT category, name FROM products ORDER BY category, name") as cursor:
-                rows = await cursor.fetchall()
-        result = {}
-        for category, name in rows:
-            result.setdefault(category, []).append(name)
-        return result
-    except Exception:
-        return {}
-
-
 async def build_embeds(bot, guild):
     embeds = []
 
