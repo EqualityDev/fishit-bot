@@ -474,7 +474,7 @@ class AdminCog(commands.Cog):
                         {"name": "Changelog", "value": f"```{output[:400]}```", "inline": False}
                     ],
                     "footer": {"text": "EQUALITY BOT • Monitor"},
-                    "timestamp": datetime.datetime.utcnow().isoformat()
+                    "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
                 }]
             }
             try:

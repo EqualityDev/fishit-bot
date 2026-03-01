@@ -259,7 +259,7 @@ async def on_ready():
                     {"name": "Server", "value": str(len(bot.guilds)), "inline": True}
                 ],
                 "footer": {"text": "EQUALITY BOT • Monitor"},
-                "timestamp": datetime.datetime.utcnow().isoformat()
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
             }]
         }
         try:
