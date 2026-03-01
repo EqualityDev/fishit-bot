@@ -139,6 +139,7 @@ class WelcomeCog(commands.Cog):
             title="Member Keluar",
             description=(
                 f"**{member.name}** telah meninggalkan server.\n\n"
+                f"Bergabung: **{(datetime.now(timezone.utc) - member.joined_at).days} hari** yang lalu\n"
                 f"Total member saat ini: **{member_count}**"
             ),
             color=0x808080,
