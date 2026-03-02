@@ -154,7 +154,6 @@ Kategori yang didukung: `LIMITED SKIN`, `GAMEPASS`, `CRATE`, `BOOST`, `NITRO`, `
 | `/transcript` | Cari transcript tiket berdasarkan user |
 | `/blacklistlist` | Lihat daftar user yang diblacklist |
 | `/ping` | Cek status dan latency bot |
-| `/reboot` | Restart bot |
 | `/update` | Pull update dari GitHub dan restart bot otomatis |
 | `/migrate` | Migrasi data antar server |
 | `/cleanupstats` | Bersihkan data statistik lama |
