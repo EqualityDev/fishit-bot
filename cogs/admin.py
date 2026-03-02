@@ -306,16 +306,45 @@ class AdminCog(commands.Cog):
         if not is_staff(interaction):
             await interaction.response.send_message("Admin only!", ephemeral=True)
             return
-        self.bot.blacklist.add(str(user.id))
-        await self.bot.db.add_blacklist(str(user.id), reason)
-        embed = discord.Embed(
-            title="⛔ BLACKLIST",
-            description=f"User: {user.mention}\nAlasan: {reason}",
-            color=0x00BFFF,
-            timestamp=datetime.now(),
+
+        admin = interaction.user
+        bot_self = self
+
+        view = discord.ui.View(timeout=30)
+        ya_btn = discord.ui.Button(label="Ya, Blacklist", style=discord.ButtonStyle.danger)
+        batal_btn = discord.ui.Button(label="Batal", style=discord.ButtonStyle.secondary)
+
+        async def ya_callback(btn: discord.Interaction):
+            if btn.user.id != admin.id:
+                await btn.response.send_message("Bukan hakmu!", ephemeral=True)
+                return
+            bot_self.bot.blacklist.add(str(user.id))
+            await bot_self.bot.db.add_blacklist(str(user.id), reason)
+            embed = discord.Embed(
+                title="BLACKLIST",
+                description=f"User: {user.mention}\nAlasan: {reason}",
+                color=0xFF0000,
+                timestamp=datetime.now(),
+            )
+            embed.set_footer(text=f"Oleh: {admin.name}")
+            await btn.response.edit_message(content=None, embed=embed, view=None)
+
+        async def batal_callback(btn: discord.Interaction):
+            if btn.user.id != admin.id:
+                await btn.response.send_message("Bukan hakmu!", ephemeral=True)
+                return
+            await btn.response.edit_message(content="Blacklist dibatalkan.", embed=None, view=None)
+
+        ya_btn.callback = ya_callback
+        batal_btn.callback = batal_callback
+        view.add_item(ya_btn)
+        view.add_item(batal_btn)
+
+        await interaction.response.send_message(
+            content=f"Konfirmasi blacklist {user.mention} dengan alasan: **{reason}**?",
+            view=view,
+            ephemeral=True
         )
-        embed.set_footer(text=f"Oleh: {interaction.user.name}")
-        await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="unblacklist", description="[ADMIN] Hapus user dari blacklist")
     @app_commands.describe(user="User yang akan dihapus dari blacklist")
