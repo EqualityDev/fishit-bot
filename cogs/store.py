@@ -141,10 +141,10 @@ class StoreCog(commands.Cog):
             if cat in categories:
                 items = categories[cat]
                 value = "".join(
-                    f"ID:{item['id']} - {item['name']} - Rp {item['price']:,}\n"
+                    f"\u2502 `ID:{item['id']}` {item['name']} — **Rp {item['price']:,}**\n"
                     for item in items
                 )
-                embed.add_field(name=cat, value=value[:1024] or "-", inline=False)
+                embed.add_field(name=f"▎{cat}", value=value[:1024] or "-", inline=False)
 
         view = discord.ui.View()
         for cat in order:
