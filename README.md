@@ -12,10 +12,13 @@ Bot Discord untuk manajemen toko digital — dari katalog produk, sistem tiket p
 - **Invoice Otomatis** — Invoice dikirim ke log channel dan DM buyer setelah transaksi selesai
 - **Giveaway** — Sistem giveaway dengan countdown, tombol join, dan auto-pilih pemenang
 - **Auto React** — Reaksi emoji otomatis pada pesan di channel tertentu
-- **Broadcast** — Kirim pengumuman ke semua member (cooldown 1x/hari)
+- **Broadcast** — Kirim pengumuman ke semua member (cooldown 1x/hari) dengan dukungan gambar via URL
+- **Welcome & Leave** — Pesan sambutan dan perpisahan otomatis dengan dukungan GIF
+- **Info Toko** — Embed panduan toko otomatis di channel khusus
 - **Statistik** — Rekap transaksi harian dan total omset
 - **Auto Backup** — Backup database otomatis setiap 6 jam ke channel Discord
 - **Auto Restart** — Bot otomatis restart jika crash
+- **Auto Update** — Update dan restart bot langsung dari Discord via `/update`
 
 ---
 
@@ -141,12 +144,18 @@ Kategori yang didukung: `LIMITED SKIN`, `GAMEPASS`, `CRATE`, `BOOST`, `NITRO`, `
 | `/setreact` | Aktifkan auto react untuk staff di channel |
 | `/setreactall` | Aktifkan auto react untuk semua pesan di channel |
 | `/reactlist` | Lihat channel yang aktif auto react |
+| `/setupinfo` | Post embed info toko ke channel panduan |
+| `/refreshinfo` | Refresh embed info toko |
+| `/setwelcome` | Set channel dan GIF welcome/leave/boost |
 | `/backup` | Backup database manual |
 | `/listbackup` | Lihat daftar file backup |
 | `/restore` | Restore database dari backup |
-| `/transcript` | Generate transcript channel tiket |
+| `/closedtickets` | Lihat riwayat tiket yang sudah selesai |
+| `/transcript` | Cari transcript tiket berdasarkan user |
+| `/blacklistlist` | Lihat daftar user yang diblacklist |
 | `/ping` | Cek status dan latency bot |
 | `/reboot` | Restart bot |
+| `/update` | Pull update dari GitHub dan restart bot otomatis |
 | `/migrate` | Migrasi data antar server |
 | `/cleanupstats` | Bersihkan data statistik lama |
 | `/resetdb` | Reset database (berbahaya!) |
@@ -169,7 +178,9 @@ fishit-bot/
 │   ├── store.py        # Katalog, produk, history
 │   ├── ticket.py       # Sistem tiket pembelian
 │   ├── giveaway.py     # Sistem giveaway
-│   └── react.py        # Auto react
+│   ├── react.py        # Auto react
+│   ├── welcome.py      # Welcome, leave, boost message
+│   └── info.py         # Info toko embed
 ├── backups/            # File backup database
 └── transcripts/        # File HTML transcript tiket
 ```
