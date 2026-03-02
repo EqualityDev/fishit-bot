@@ -265,10 +265,8 @@ class TicketCog(commands.Cog):
                 try:
                     old_msg = await interaction.channel.fetch_message(qty_msg_id)
                     await old_msg.edit(content=new_content)
-                    await interaction.followup.send("​", ephemeral=True, delete_after=0)
                 except Exception:
-                    sent = await interaction.followup.send(new_content)
-                    ticket["qty_msg_id"] = sent.id
+                    pass
             else:
                 sent = await interaction.followup.send(new_content)
                 ticket["qty_msg_id"] = sent.id
