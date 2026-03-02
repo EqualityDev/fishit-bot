@@ -100,22 +100,6 @@ class AdminCog(commands.Cog):
             content=f"🏓 **Pong!**\n📡 Latensi: {latency}ms\n🌐 WebSocket: {ws_latency}ms"
         )
 
-    @app_commands.command(name="reboot", description="[ADMIN] Restart bot")
-    async def reboot_bot(self, interaction: discord.Interaction):
-        if not is_staff(interaction):
-            await interaction.response.send_message("❌ Admin only!", ephemeral=True)
-            return
-        await interaction.response.send_message(
-            "🔄 **Bot sedang direstart...**\nAkan online kembali dalam beberapa detik."
-        )
-        log_channel = await get_log_channel(interaction.guild)
-        if log_channel:
-            await log_channel.send(f"🔄 **Bot direstart** oleh {interaction.user.mention}")
-        await self.bot.close()
-        os.execl(sys.executable, sys.executable, *sys.argv)
-
-    # ─── Database ────────────────────────────────────────────────
-
     @app_commands.command(name="resetdb", description="[ADMIN] Reset database (hapus semua transaksi)")
     async def reset_database(self, interaction: discord.Interaction):
         if not is_staff(interaction):
