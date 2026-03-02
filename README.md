@@ -37,6 +37,11 @@ Setelah isi `.env`, jalankan bot:
 bash start.sh
 ```
 
+> **Catatan:** Fitur `/export` membutuhkan pandas. Install terpisah jika diperlukan:
+> ```bash
+> pip install pandas --break-system-packages
+> ```
+
 ---
 
 ### Manual (PC/VPS)
