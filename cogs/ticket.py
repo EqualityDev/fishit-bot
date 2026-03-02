@@ -324,6 +324,8 @@ class TicketCog(commands.Cog):
                 await interaction.followup.send("❌ Tiket sudah diproses.", ephemeral=True)
                 return
 
+            ticket["status"] = "PAID"
+
             await interaction.channel.send(
                 f"✅ **Pembayaran dikonfirmasi!**\n"
                 f"Lanjutkan proses serah terima item. Ketik `!done` setelah semua selesai."
