@@ -21,12 +21,22 @@ Bot Discord untuk manajemen toko digital — dari katalog produk, sistem tiket p
 
 ## Instalasi
 
-### Persyaratan
-- Python 3.10+
-- pip
-- Git
+### Termux (Android) — One-liner
 
-### Langkah Instalasi
+Copy-paste command berikut, semua akan terinstall otomatis:
+
+```bash
+pkg update -y && pkg upgrade -y && pkg install -y python git && git clone https://github.com/EqualityDev/fishit-bot.git && cd fishit-bot && pip install -r requirements.txt --break-system-packages && cp .env.example .env && nano .env
+```
+
+Setelah isi `.env`, jalankan bot:
+```bash
+bash start.sh
+```
+
+---
+
+### Manual (PC/VPS)
 
 **1. Clone repo**
 ```bash
