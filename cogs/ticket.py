@@ -258,9 +258,20 @@ class TicketCog(commands.Cog):
                 await interaction.channel.delete()
                 return
 
-            await interaction.followup.send(
-                f"{msg}\n🛒 **Items:**\n{format_items(ticket['items'])}\n💰 **Total: Rp {ticket['total_price']:,}**"
-            )
+            new_content = f"{msg}\n🛒 **Items:**\n{format_items(ticket['items'])}\n💰 **Total: Rp {ticket['total_price']:,}**"
+
+            qty_msg_id = ticket.get("qty_msg_id")
+            if qty_msg_id:
+                try:
+                    old_msg = await interaction.channel.fetch_message(qty_msg_id)
+                    await old_msg.edit(content=new_content)
+                    await interaction.followup.send("​", ephemeral=True, delete_after=0)
+                except Exception:
+                    sent = await interaction.followup.send(new_content)
+                    ticket["qty_msg_id"] = sent.id
+            else:
+                sent = await interaction.followup.send(new_content)
+                ticket["qty_msg_id"] = sent.id
 
         # ─── Confirm Payment ─────────────────────────────────────
 
