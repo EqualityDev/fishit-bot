@@ -445,7 +445,7 @@ class AdminCog(commands.Cog):
         await interaction.followup.send(msg, ephemeral=True)
 
         # Kirim notif ke webhook
-        import os, aiohttp
+        import aiohttp
         webhook_url = os.getenv("WATCHDOG_WEBHOOK", "")
         if webhook_url:
             import datetime
@@ -489,7 +489,6 @@ class AdminCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=True)
 
-        import os
         transcript_dir = BACKUP_DIR.replace("backups", "transcripts")
         if not os.path.exists(transcript_dir):
             await interaction.followup.send("❌ Folder transcripts tidak ditemukan!", ephemeral=True)
