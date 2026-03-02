@@ -168,7 +168,10 @@ class TicketCog(commands.Cog):
             )
             embed.add_field(name="Customer", value=user.mention, inline=True)
             embed.add_field(name="Item", value=item['name'], inline=True)
-            embed.add_field(name="Harga", value=f"Rp {item['price']:,}", inline=True)
+            harga_value = f"Rp {item['price']:,}"
+            if item.get('category', '').upper() not in ['NITRO', 'RED FINGER']:
+                harga_value += "\n*Harga Robux mengikuti rate pasar, konfirmasi ke admin untuk harga terkini*"
+            embed.add_field(name="Harga", value=harga_value, inline=True)
             embed.add_field(
                 name="Metode Pembayaran",
                 value="Ketik **1** — QRIS  |  **2** — DANA  |  **3** — BCA",
