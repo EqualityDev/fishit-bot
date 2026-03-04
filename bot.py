@@ -205,6 +205,45 @@ async def auto_daily_summary():
             logger.error(f"❌ Gagal auto summary: {e}")
 
 
+async def ticket_reminder():
+    await bot.wait_until_ready()
+    while True:
+        await asyncio.sleep(3600)
+        try:
+            now = datetime.now()
+            for channel_id, ticket in list(bot.active_tickets.items()):
+                if ticket.get("status") != "OPEN":
+                    continue
+                created_at = ticket.get("created_at")
+                if not created_at:
+                    continue
+                if isinstance(created_at, str):
+                    created_at = datetime.fromisoformat(created_at)
+                delta = (now - created_at).total_seconds() / 3600
+                if delta >= 1:
+                    for guild in bot.guilds:
+                        channel = guild.get_channel(int(channel_id))
+                        if not channel:
+                            continue
+                        user = guild.get_member(int(ticket["user_id"]))
+                        staff_role = discord.utils.get(guild.roles, name=STAFF_ROLE_NAME)
+                        embed = discord.Embed(
+                            title="PENGINGAT TIKET",
+                            description=(
+                                f"Tiket ini tidak ada aktivitas selama **{int(delta)} jam**.\n\n"
+                                f"Segera selesaikan pembayaran atau ketik `!cancel` untuk membatalkan."
+                            ),
+                            color=0xFFA500
+                        )
+                        embed.set_footer(text=STORE_NAME)
+                        mentions = user.mention if user else ""
+                        if staff_role:
+                            mentions += f" {staff_role.mention}"
+                        await channel.send(content=mentions, embed=embed)
+        except Exception as e:
+            logger.error(f"Gagal kirim reminder tiket: {e}")
+
+
 async def update_member_count(guild):
     try:
         if not guild.chunked:
@@ -313,6 +352,7 @@ async def on_ready():
     bot.loop.create_task(update_all_member_counts())
     bot.loop.create_task(bot._error_handler.flush_to_discord())
     bot.loop.create_task(rotating_status())
+    bot.loop.create_task(ticket_reminder())
     logger.info("✓ Background tasks started")
 
 
