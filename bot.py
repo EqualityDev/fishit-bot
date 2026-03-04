@@ -231,7 +231,11 @@ async def ticket_reminder():
                             title="PENGINGAT TIKET",
                             description=(
                                 f"Tiket ini tidak ada aktivitas selama **{int(delta)} jam**.\n\n"
-                                f"Segera selesaikan pembayaran atau ketik `!cancel` untuk membatalkan."
+                                f"Jika transaksi sudah selesai, Admin Store harap segera ketik `!done`.\n"
+                                f"Jika transaksi dibatalkan, ketik `!cancel`.\n\n"
+                                f"⚠️ Perhatian: Jika bot mengalami update atau restart, tiket yang "
+                                f"menggantung terlalu lama berisiko tidak dapat dilanjutkan.\n"
+                                f"Segera selesaikan tiket ini!"
                             ),
                             color=0xFFA500
                         )
