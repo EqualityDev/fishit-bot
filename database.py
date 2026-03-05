@@ -445,7 +445,7 @@ class SimpleDB:
         import json
         async with aiosqlite.connect(self.db_name) as db:
             await db.execute(
-                "INSERT OR REPLACE INTO giveaways VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT OR REPLACE INTO giveaways VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)",
                 (
                     str(message_id), str(channel_id), str(guild_id),
                     prize, end_time.isoformat(), winners, str(host_id),
