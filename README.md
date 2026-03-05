@@ -1,4 +1,4 @@
-# Equality Bot — Discord Store Bot
+# Discord Store Bot
 
 Bot Discord untuk manajemen toko digital — dari katalog produk, sistem tiket pembelian, pembayaran, hingga invoice otomatis. Dibangun untuk server Discord yang menjual produk digital seperti skin, gamepass, nitro, dan sejenisnya.
 
