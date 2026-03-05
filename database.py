@@ -64,8 +64,13 @@ class SimpleDB:
                 end_time TEXT,
                 winners INTEGER,
                 host_id TEXT,
-                participants TEXT
+                participants TEXT,
+                ended INTEGER DEFAULT 0
             )''')
+            try:
+                await db.execute("ALTER TABLE giveaways ADD COLUMN ended INTEGER DEFAULT 0")
+            except Exception:
+                pass
             # Migrations
             try:
                 await db.execute("ALTER TABLE products ADD COLUMN spotlight INTEGER DEFAULT 0")
@@ -460,15 +465,33 @@ class SimpleDB:
 
     async def delete_giveaway(self, message_id):
         async with aiosqlite.connect(self.db_name) as db:
-            await db.execute("DELETE FROM giveaways WHERE message_id=?", (str(message_id),))
+            await db.execute("UPDATE giveaways SET ended=1 WHERE message_id=?", (str(message_id),))
             await db.commit()
+
+    async def load_ended_giveaway(self, message_id):
+        import json
+        async with aiosqlite.connect(self.db_name) as db:
+            cursor = await db.execute("SELECT * FROM giveaways WHERE message_id=? AND ended=1", (str(message_id),))
+            row = await cursor.fetchone()
+            if not row:
+                return None
+            message_id, channel_id, guild_id, prize, end_time, winners, host_id, participants, ended = row
+            return {
+                "channel_id": int(channel_id),
+                "guild_id": int(guild_id),
+                "prize": prize,
+                "end_time": end_time,
+                "winners": winners,
+                "host_id": int(host_id),
+                "participants": set(json.loads(participants)),
+            }
 
     async def load_giveaways(self):
         import json
         from datetime import datetime
         result = {}
         async with aiosqlite.connect(self.db_name) as db:
-            cursor = await db.execute("SELECT * FROM giveaways")
+            cursor = await db.execute("SELECT * FROM giveaways WHERE ended=0 OR ended IS NULL")
             rows = await cursor.fetchall()
             for row in rows:
                 message_id, channel_id, guild_id, prize, end_time, winners, host_id, participants = row

@@ -261,9 +261,14 @@ class GiveawayCog(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         try:
             target_channel = channel or interaction.channel
-            msg = await target_channel.fetch_message(int(message_id))
+            msg_id = int(message_id)
 
-            data = self.active_giveaways.get(int(message_id))
+            # Cek active dulu
+            data = self.active_giveaways.get(msg_id)
+            # Kalau tidak ada, cek dari database (giveaway sudah selesai)
+            if not data:
+                data = await self.bot.db.load_ended_giveaway(msg_id)
+
             if data and data.get("participants"):
                 participants = list(data["participants"])
                 winner_id = random.choice(participants)
@@ -271,8 +276,10 @@ class GiveawayCog(commands.Cog):
                 if winner:
                     await target_channel.send(f"🎉 **REROLL!** Pemenang baru: {winner.mention}\nSelamat! Hubungi admin untuk klaim hadiah.")
                     await interaction.followup.send("✅ Reroll selesai!", ephemeral=True)
+                else:
+                    await interaction.followup.send("❌ Pemenang tidak ditemukan di server.", ephemeral=True)
             else:
-                await interaction.followup.send("❌ Data peserta tidak ditemukan. Reroll hanya bisa dilakukan saat giveaway masih aktif.", ephemeral=True)
+                await interaction.followup.send("❌ Data peserta tidak ditemukan!", ephemeral=True)
         except Exception as e:
             await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
 
