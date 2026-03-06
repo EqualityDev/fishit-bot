@@ -433,6 +433,13 @@ class TicketCog(commands.Cog):
                 total = ticket["total_price"]
                 await self.bot.db.update_ticket_status(channel_id, "OPEN", method)
 
+                items_text = format_items(ticket["items"])
+                paid_view = discord.ui.View()
+                paid_view.add_item(discord.ui.Button(
+                    label="PAID", style=discord.ButtonStyle.success, custom_id="confirm_payment"
+                ))
+                staff_role = discord.utils.get(message.guild.roles, name=STAFF_ROLE_NAME)
+
                 if method == "QRIS":
                     qris_url = None
                     try:
@@ -447,9 +454,9 @@ class TicketCog(commands.Cog):
                         title="QRIS PAYMENT",
                         description=(
                             f"Scan QR Code di bawah untuk membayar.\n\n"
+                            f"**Items:**\n{items_text}\n\n"
                             f"**Total: Rp {total:,}**\n\n"
-                            f"Setelah transfer, kirim **bukti pembayaran** (screenshot) di sini,\n"
-                            f"lalu klik tombol **PAID** di bawah."
+                            f"Setelah transfer, kirim bukti pembayaran di sini lalu klik **PAID**."
                         ),
                         color=0x00BFFF,
                     )
@@ -464,9 +471,9 @@ class TicketCog(commands.Cog):
                         description=(
                             f"Transfer ke nomor DANA berikut:\n\n"
                             f"**`{DANA_NUMBER}`**\n\n"
+                            f"**Items:**\n{items_text}\n\n"
                             f"**Total: Rp {total:,}**\n\n"
-                            f"Setelah transfer, kirim **bukti pembayaran** (screenshot) di sini,\n"
-                            f"lalu klik tombol **PAID** di bawah."
+                            f"Setelah transfer, kirim bukti pembayaran di sini lalu klik **PAID**."
                         ),
                         color=0x00BFFF,
                     )
@@ -479,9 +486,9 @@ class TicketCog(commands.Cog):
                         description=(
                             f"Transfer ke rekening BCA berikut:\n\n"
                             f"**`{BCA_NUMBER}`**\n\n"
+                            f"**Items:**\n{items_text}\n\n"
                             f"**Total: Rp {total:,}**\n\n"
-                            f"Setelah transfer, kirim **bukti pembayaran** (screenshot) di sini,\n"
-                            f"lalu klik tombol **PAID** di bawah."
+                            f"Setelah transfer, kirim bukti pembayaran di sini lalu klik **PAID**."
                         ),
                         color=0x00BFFF,
                     )
@@ -489,16 +496,9 @@ class TicketCog(commands.Cog):
                     await message.channel.send(embed=embed)
 
                 await message.channel.send(
-                    f"**🛒 ITEMS:**\n{format_items(ticket['items'])}\n**💰 TOTAL: Rp {total:,}**"
+                    content="Sudah transfer? Kirim bukti pembayaran lalu klik tombol di bawah:",
+                    view=paid_view
                 )
-                view = discord.ui.View()
-                view.add_item(discord.ui.Button(
-                    label="PAID", style=discord.ButtonStyle.success, custom_id="confirm_payment"
-                ))
-                await message.channel.send("Sudah transfer? Klik tombol di bawah:", view=view)
-                staff_role = discord.utils.get(message.guild.roles, name=STAFF_ROLE_NAME)
-                if staff_role:
-                    await message.channel.send(f"{staff_role.mention} Ada pembayaran baru!")
 
         # ─── Auto React ──────────────────────────────────────────
 
