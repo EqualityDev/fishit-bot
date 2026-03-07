@@ -243,7 +243,18 @@ async def ticket_reminder():
                         mentions = user.mention if user else ""
                         if staff_role:
                             mentions += f" {staff_role.mention}"
-                        await channel.send(content=mentions, embed=embed)
+
+                        # Hapus reminder lama sebelum kirim baru
+                        old_reminder_id = ticket.get("reminder_message_id")
+                        if old_reminder_id:
+                            try:
+                                old_msg = await channel.fetch_message(int(old_reminder_id))
+                                await old_msg.delete()
+                            except Exception:
+                                pass
+
+                        new_reminder = await channel.send(content=mentions, embed=embed)
+                        ticket["reminder_message_id"] = new_reminder.id
         except Exception as e:
             logger.error(f"Gagal kirim reminder tiket: {e}")
 
